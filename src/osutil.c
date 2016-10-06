@@ -27,7 +27,7 @@
 /***************************** Exported Functions ****************************/
 
 //returns 1 if semaphore was successfully decreased
-sint8 _sem_test(SEMAPHORE_T *sem){
+int8_t _sem_test(SEMAPHORE_T *sem){
 #ifdef _WIN32
    DWORD rc;
      rc = WaitForSingleObject(*sem,0);

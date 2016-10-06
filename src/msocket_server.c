@@ -60,8 +60,8 @@ void msocket_server_destroy(msocket_server_t *self){
 #ifndef _WIN32
    void *result;
 #endif
-   uint32 len;
-   uint32 i;
+   uint32_t len;
+   uint32_t i;
    if(self != 0){
       if(self->acceptSocket != 0){
          msocket_close(self->acceptSocket);
@@ -202,8 +202,8 @@ THREAD_PROTO(cleanupTask,arg){
    msocket_server_t *self = (msocket_server_t *) arg;
    if(self != 0){
       while(1){
-         sint8 rc;
-       uint8 stopThread;
+         int8_t rc;
+         uint8_t stopThread;
          SLEEP(200); //sleep 200ms
          rc = _sem_test(&self->sem);
          if(rc < 0){
@@ -214,8 +214,8 @@ THREAD_PROTO(cleanupTask,arg){
          else if(rc > 0){
             //successfully decreased semaphore, this means that there must be something in the array
             msocket_t *msocket;
-            uint32 i;
-            uint32 len;
+            uint32_t i;
+            uint32_t len;
             MUTEX_LOCK(self->mutex);
             assert(adt_ary_length(&self->cleanupItems)>0);
             msocket = (msocket_t*) adt_ary_shift(&self->cleanupItems);
