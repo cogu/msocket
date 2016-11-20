@@ -20,6 +20,7 @@
 #else
 #include <pthread.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <arpa/inet.h>
 #endif
 #include "osmacro.h"
@@ -90,11 +91,17 @@ msocket_t *msocket_new(uint8_t addressFamily);
 void msocket_delete(msocket_t *self);
 void msocket_close(msocket_t *self);
 int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const char *addr);
+#ifndef _WIN32
+int8_t msocket_unix_listen(msocket_t *self, const char *socket_path);
+#endif
 msocket_t *msocket_accept(msocket_t *self,msocket_t *child);
 void msocket_sethandler(msocket_t *self, const msocket_handler_t *handlerTable, void *handlerArg);
 int8_t msocket_start_io(msocket_t *self);
 
 int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port);
+#ifndef _WIN32
+int8_t msocket_unix_connect(msocket_t *self,const char *socketPath);
+#endif
 int8_t msocket_sendto(msocket_t *self,const char *addr,uint16_t port,const void *msgData,uint32_t msgLen);
 int8_t msocket_send(msocket_t *self,void *msgData,uint32_t msgLen);
 int8_t msocket_state(msocket_t *self);

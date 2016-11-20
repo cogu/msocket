@@ -59,6 +59,9 @@ int8_t msocket_create(msocket_t *self,uint8_t addressFamily){
       case AF_INET6:
          self->addressFamily = AF_INET6;
          break;
+      case AF_LOCAL:
+         self->addressFamily = AF_UNIX;
+         break;
       default:
          return -1;//invalid/unsupported address family
       }
@@ -282,6 +285,57 @@ int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const c
      return -1;
 }
 
+int8_t msocket_unix_listen(msocket_t *self, const char *socket_path)
+{
+   if(self != 0){
+        int rc;
+        struct sockaddr_un saddr;
+        uint8_t mode = MSOCKET_MODE_TCP;
+
+        if( (mode != MSOCKET_MODE_UDP) && (mode != MSOCKET_MODE_TCP) ){
+           errno = EINVAL;
+           return -1;
+        }
+
+           memset(&saddr, 0,sizeof(saddr));
+           saddr.sun_family = AF_UNIX;
+           if (*socket_path == '\0') {
+             *saddr.sun_path = '\0';
+             strncpy(saddr.sun_path+1, socket_path+1, sizeof(saddr.sun_path)-2);
+           } else {
+             strncpy(saddr.sun_path, socket_path, sizeof(saddr.sun_path)-1);
+           }
+        if (mode == MSOCKET_MODE_TCP){
+           /*** this is for creating a TCP socket ****/
+           SOCKET_T sockunix;
+           int sockoptval;
+           socklen_t sockoptlen = sizeof(sockoptval);
+           sockunix = socket(PF_LOCAL, SOCK_STREAM, 0);
+           if(IS_INVALID_SOCKET(sockunix)){
+              return -1;
+           }
+           sockoptval = 1;
+           setsockopt(sockunix, SOL_SOCKET, SO_REUSEADDR, (const char*)&sockoptval, sockoptlen);
+           rc=bind(sockunix, (struct sockaddr *) &saddr,sizeof(saddr));
+           if (rc < 0){
+              SOCKET_CLOSE(sockunix);
+              return rc;
+           }
+           rc = listen(sockunix,5);
+           if(rc<0){
+              SOCKET_CLOSE(sockunix);
+              return rc;
+           }
+           self->tcpsockfd = sockunix;
+           self->state = MSOCKET_STATE_LISTENING;
+           self->socketMode |= mode;
+        }
+        return 0;
+     }
+     errno = EINVAL;
+     return -1;
+}
+
 msocket_t *msocket_accept(msocket_t *self,msocket_t *child){
    if((self != 0) && (self->state == MSOCKET_STATE_LISTENING) ){
       struct sockaddr_in cli_addr;
@@ -318,8 +372,15 @@ msocket_t *msocket_accept(msocket_t *self,msocket_t *child){
       if(self->addressFamily == AF_INET6){
          sockfd=accept(self->tcpsockfd,(struct sockaddr *) &cli_addr6, &cli_len); //blocking call (close tcpsockfd from another thread to unblock)
       }
-      else{
+      else if (self->addressFamily == AF_INET){
          sockfd=accept(self->tcpsockfd,(struct sockaddr *) &cli_addr, &cli_len); //blocking call (close tcpsockfd from another thread to unblock)
+      }
+      else if (self->addressFamily == AF_LOCAL){
+         sockfd=accept(self->tcpsockfd, NULL, NULL);
+      }
+      else
+      {
+         assert(0);
       }
       MUTEX_LOCK(self->mutex);
       self->state = MSOCKET_STATE_LISTENING;
@@ -437,6 +498,49 @@ int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port){
    return -1;
 }
 
+int8_t msocket_unix_connect(msocket_t *self,const char *socketPath)
+{
+   if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) == 0) && (self->handlerTable != 0) ){
+      int rc;
+      SOCKET_T sockfd;
+      struct sockaddr_un saddr;
+
+      memset(&saddr, 0,sizeof(saddr));
+      saddr.sun_family = AF_LOCAL;
+      if (*socketPath == '\0') {
+        *saddr.sun_path = '\0';
+        strncpy(saddr.sun_path+1, socketPath+1, sizeof(saddr.sun_path)-2);
+      } else {
+        strncpy(saddr.sun_path, socketPath, sizeof(saddr.sun_path)-1);
+      }
+
+      sockfd = socket(PF_LOCAL, SOCK_STREAM, 0);
+      if(IS_INVALID_SOCKET(sockfd)){
+         return -1;
+      }
+      rc=connect(sockfd,(struct sockaddr*) &saddr,sizeof(saddr));
+      if (rc < 0){
+         SOCKET_CLOSE(sockfd);
+         return rc;
+      }
+      MUTEX_LOCK(self->mutex);
+      self->tcpsockfd = sockfd;
+      self->socketMode |= MSOCKET_MODE_TCP;
+      self->state = MSOCKET_STATE_ESTABLISHED;
+      self->newConnection = 1;
+      MUTEX_UNLOCK(self->mutex);
+      rc = msocket_startIoThread(self);
+      if(rc != 0){
+         return rc;
+      }
+      return 0;
+
+      //inet_pton failed to parse addr argument, set errno to EINVAL and return error
+   }
+   errno = EINVAL;
+   return -1;
+}
+
 /**
  * send UDP message
  */
@@ -479,7 +583,7 @@ int8_t msocket_send(msocket_t *self,void *msgData,uint32_t msgLen){
       while(remain>0){
          n = send(self->tcpsockfd,p,remain,0);
          if(n <= 0){
-            perror("send failed\n");
+            perror("msocket: send failed\n");
             return -1;
          }
          remain -= n;

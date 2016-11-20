@@ -72,6 +72,11 @@ int8_t bytearray_append(bytearray_t *buf, const uint8_t *pData, uint32_t u32Data
    return -1;
 }
 
+/**
+ * Removes all bytes to the left of pSrc, saves all bytes to the right of pSrc (including pSrc itself)
+ * \param buf pointer to bytearray_t
+ * \param pSrc pointer to a byte inside the array
+ */
 int8_t bytearray_trimLeft(bytearray_t *buf, const uint8_t *pSrc){
    if( (buf!=0) && (pSrc!=0) && (buf->pData <= pSrc) && (pSrc <= buf->pData + buf->u32CurLen) ){
       uint32_t start, remain;

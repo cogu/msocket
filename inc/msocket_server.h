@@ -25,6 +25,7 @@ typedef struct msocket_server_t{
    uint16_t tcpPort;
    uint16_t udpPort;
    char *udpAddr;
+   char *socketPath;
    adt_ary_t clients;
    adt_ary_t cleanupItems;
    THREAD_T acceptThread;
@@ -50,6 +51,7 @@ msocket_server_t *msocket_server_new(uint8_t addressFamily);
 void msocket_server_delete(msocket_server_t *self);
 void msocket_server_sethandler(msocket_server_t *self,msocket_handler_t *handler, void *handlerArg);
 void msocket_server_start(msocket_server_t *self,const char *udpAddr,uint16_t udpPort,uint16_t tcpPort);
+void msocket_server_unix_start(msocket_server_t *self,const char *socketPath);
 void msocket_server_cleanup_connection(msocket_server_t *self,msocket_t *msocket);
 
 

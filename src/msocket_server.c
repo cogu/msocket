@@ -44,6 +44,7 @@ void msocket_server_create(msocket_server_t *self, uint8_t addressFamily){
       self->tcpPort = 0;
       self->udpPort = 0;
       self->udpAddr=0;
+      self->socketPath=0;
       self->acceptSocket = 0;
       self->cleanupStop = 0;
       memset(&self->handlerTable,0,sizeof(self->handlerTable));
@@ -97,6 +98,9 @@ void msocket_server_destroy(msocket_server_t *self){
       if(self->udpAddr != 0){
          free(self->udpAddr);
       }
+      if(self->socketPath != 0){
+         free(self->socketPath);
+      }
    }
 }
 
@@ -127,6 +131,40 @@ void msocket_server_start(msocket_server_t *self,const char *udpAddr,uint16_t ud
       self->udpPort = udpPort;
       if(udpAddr != 0){
          self->udpAddr = strdup(udpAddr);
+      }
+      msocket_sethandler(self->acceptSocket,&self->handlerTable,self->handlerArg);
+      msocket_start_io(self->acceptSocket);
+#ifdef _WIN32
+   THREAD_CREATE(self->acceptThread,acceptTask,(void*) self,self->acceptThreadId);
+   THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self,self->cleanupThreadId);
+#else
+   THREAD_CREATE(self->acceptThread,acceptTask,(void*) self);
+   THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self);
+#endif
+   }
+}
+
+void msocket_server_unix_start(msocket_server_t *self,const char *socketPath)
+{
+   if(self != 0){
+      self->tcpPort = 0;
+      self->udpPort = 0;
+      if (socketPath != 0)
+      {
+         if (*socketPath=='\0')
+         {
+            int len=strlen(socketPath+1)+2;
+            self->socketPath=(char*) malloc(len);
+            if (self->socketPath != 0)
+            {
+               memcpy(self->socketPath+1,socketPath,len);
+            }
+         }
+         else
+         {
+            self->socketPath=strdup(socketPath);
+            unlink(socketPath);
+         }
       }
       msocket_sethandler(self->acceptSocket,&self->handlerTable,self->handlerArg);
       msocket_start_io(self->acceptSocket);
@@ -177,10 +215,18 @@ THREAD_PROTO(acceptTask,arg){
                THREAD_RETURN(rc);
             }
          }
+         if (self->socketPath != 0)
+         {
+            rc = msocket_unix_listen(self->acceptSocket,self->socketPath);
+            if(rc<0){
+               printf("*** WARNING: failed to bind to path %s ***\n",self->socketPath);
+               THREAD_RETURN(rc);
+            }
+         }
          while(1){
-            //printf("accept wait\n");
+            printf("accept wait\n");
             msocket_t *child = msocket_accept(self->acceptSocket,0);
-            //printf("accept return\n");
+            printf("accept return\n");
             if( child == 0 ){
                break;
             }
@@ -203,7 +249,7 @@ THREAD_PROTO(cleanupTask,arg){
    if(self != 0){
       while(1){
          int8_t rc;
-         uint8_t stopThread;
+       uint8_t stopThread;
          SLEEP(200); //sleep 200ms
          rc = _sem_test(&self->sem);
          if(rc < 0){

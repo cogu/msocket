@@ -18,6 +18,8 @@ typedef struct bytearray_t{
    uint32_t u32GrowSize;
 } bytearray_t;
 
+#define BYTE_ARRAY_GROW_SIZE_DEFAULT ((uint32_t)8192u)
+
 /***************** Public Function Declarations *******************/
 void bytearray_create(bytearray_t *buf,uint32_t u32GrowSize);
 void bytearray_destroy(bytearray_t *buf);
