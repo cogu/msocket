@@ -83,8 +83,8 @@ int8_t msocket_create(msocket_t *self,uint8_t addressFamily){
       self->udpsockfd = -1;
 #endif
       msocket_timeoutReset(self);
-      bytearray_create(&self->tcpRxBuf,(uint32_t) MSOCKET_RCV_BUF_GROW_SIZE);
-      bytearray_reserve(&self->tcpRxBuf,MSOCKET_MIN_RCV_BUF_SIZE);
+      adt_bytearray_create(&self->tcpRxBuf,(uint32_t) MSOCKET_RCV_BUF_GROW_SIZE);
+      adt_bytearray_reserve(&self->tcpRxBuf,MSOCKET_MIN_RCV_BUF_SIZE);
       MUTEX_INIT(self->mutex);
       return 0;
    }
@@ -95,7 +95,7 @@ void msocket_destroy(msocket_t *self){
 	if( self != 0 ){
       msocket_close(self);
       MUTEX_DESTROY(self->mutex);
-      bytearray_destroy(&self->tcpRxBuf);
+      adt_bytearray_destroy(&self->tcpRxBuf);
       if(self->handlerTable != 0){
          free(self->handlerTable);
       }
@@ -120,6 +120,11 @@ void msocket_delete(msocket_t *self){
       msocket_destroy(self);
       free(self);
    }
+}
+
+void msocket_vdelete(void *arg)
+{
+   msocket_delete( (msocket_t*) arg);
 }
 
 void msocket_close(msocket_t *self){
@@ -167,7 +172,6 @@ void msocket_close(msocket_t *self){
           }
           MUTEX_LOCK(self->mutex);
           shutdown(self->tcpsockfd,SHUT_RDWR);
-          self->tcpsockfd=-1;
           MUTEX_UNLOCK(self->mutex);
        }
  #endif
@@ -778,7 +782,7 @@ static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
       else if(self->handlerTable->tcp_data != 0){
          uint32_t u32Len;
          const uint8_t *pBegin;
-         if(bytearray_append(&self->tcpRxBuf,recvBuf,(uint32_t) len) != 0){
+         if(adt_bytearray_append(&self->tcpRxBuf,recvBuf,(uint32_t) len) != 0){
             return -1;
          }
          while(1){
@@ -802,7 +806,7 @@ static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
             }
             else{
                assert(parseLen<=u32Len);
-               bytearray_trimLeft(&self->tcpRxBuf,pBegin+parseLen);
+               adt_bytearray_trimLeft(&self->tcpRxBuf,pBegin+parseLen);
             }
          }
       }

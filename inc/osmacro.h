@@ -107,6 +107,7 @@
 #endif
 
 /* SLEEP */
+// include Winsows.h for Windows, unistd.h for Linux/Cygwin
 #ifdef _WIN32
 #define SLEEP(ms) Sleep(ms);
 #else

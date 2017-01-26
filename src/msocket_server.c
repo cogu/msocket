@@ -39,7 +39,7 @@ static THREAD_PROTO(cleanupTask,arg);
 
 /****************** Public Function Definitions *******************/
 
-void msocket_server_create(msocket_server_t *self, uint8_t addressFamily){
+void msocket_server_create(msocket_server_t *self, uint8_t addressFamily, void (*pDestructor)(void*)){
    if(self != 0){
       self->tcpPort = 0;
       self->udpPort = 0;
@@ -50,7 +50,14 @@ void msocket_server_create(msocket_server_t *self, uint8_t addressFamily){
       memset(&self->handlerTable,0,sizeof(self->handlerTable));
       self->handlerArg = 0;
       self->addressFamily = addressFamily;
-      adt_ary_create(&self->clients,0);
+      if (pDestructor != 0)
+      {
+         self->pDestructor = pDestructor;
+      }
+      else
+      {
+         self->pDestructor = msocket_vdelete;
+      }
       adt_ary_create(&self->cleanupItems,0);
       MUTEX_INIT(self->mutex);
       SEMAPHORE_CREATE(self->sem);
@@ -61,8 +68,7 @@ void msocket_server_destroy(msocket_server_t *self){
 #ifndef _WIN32
    void *result;
 #endif
-   uint32_t len;
-   uint32_t i;
+
    if(self != 0){
       if(self->acceptSocket != 0){
          msocket_close(self->acceptSocket);
@@ -74,15 +80,6 @@ void msocket_server_destroy(msocket_server_t *self){
 #endif
       }
       MUTEX_LOCK(self->mutex);
-      len = adt_ary_length(&self->clients);
-      for(i=0;i<len;i++){
-        msocket_t *elem;
-        elem = (msocket_t*) *adt_ary_get(&self->clients,i);
-        if(elem != 0){
-           adt_ary_push(&self->cleanupItems,elem);
-           SEMAPHORE_POST(self->sem);
-        }
-      }
       self->cleanupStop = 1;
       MUTEX_UNLOCK(self->mutex);
 #ifdef _WIN32
@@ -91,7 +88,6 @@ void msocket_server_destroy(msocket_server_t *self){
 #else
       pthread_join(self->cleanupThread,&result);
 #endif
-      adt_ary_destroy(&self->clients);
       adt_ary_destroy(&self->cleanupItems);
       SEMAPHORE_DESTROY(self->sem);
       MUTEX_DESTROY(self->mutex);
@@ -104,10 +100,10 @@ void msocket_server_destroy(msocket_server_t *self){
    }
 }
 
-msocket_server_t *msocket_server_new(uint8_t addressFamily){
+msocket_server_t *msocket_server_new(uint8_t addressFamily, void (*pDestructor)(void*)){
    msocket_server_t *self = (msocket_server_t*) malloc(sizeof(msocket_server_t));
    if(self != 0){
-      msocket_server_create(self,addressFamily);
+      msocket_server_create(self,addressFamily, pDestructor);
    }
    return self;
 }
@@ -122,6 +118,7 @@ void msocket_server_delete(msocket_server_t *self){
 void msocket_server_sethandler(msocket_server_t *self,msocket_handler_t *handler, void *handlerArg){
    if(self != 0){
       memcpy(&self->handlerTable,handler,sizeof(msocket_handler_t));
+      self->handlerArg = handlerArg;
    }
 }
 
@@ -178,9 +175,9 @@ void msocket_server_unix_start(msocket_server_t *self,const char *socketPath)
    }
 }
 
-void msocket_server_cleanup_connection(msocket_server_t *self,msocket_t *msocket){
+void msocket_server_cleanup_connection(msocket_server_t *self, void *arg){
    MUTEX_LOCK(self->mutex);
-   adt_ary_push(&self->cleanupItems,(void*) msocket);
+   adt_ary_push(&self->cleanupItems,arg);
    MUTEX_UNLOCK(self->mutex);
    SEMAPHORE_POST(self->sem);
 }
@@ -231,7 +228,6 @@ THREAD_PROTO(acceptTask,arg){
                break;
             }
             else{
-               adt_ary_push(&self->clients,child);
                if(self->handlerTable.tcp_accept != 0){
                   self->handlerTable.tcp_accept(self->handlerArg,self,child);
                }
@@ -244,44 +240,45 @@ THREAD_PROTO(acceptTask,arg){
    THREAD_RETURN(0);
 }
 
-THREAD_PROTO(cleanupTask,arg){
+THREAD_PROTO(cleanupTask,arg)
+{
    msocket_server_t *self = (msocket_server_t *) arg;
-   if(self != 0){
-      while(1){
+   if(self != 0)
+   {
+      if (self->pDestructor == 0)
+      {
+         THREAD_RETURN(0);
+      }
+      while(1)
+      {
          int8_t rc;
-       uint8_t stopThread;
+         uint8_t stopThread;
          SLEEP(200); //sleep 200ms
          rc = _sem_test(&self->sem);
-         if(rc < 0){
+         if(rc < 0)
+         {
             //failure
             printf("cleanupTask errno=%d\n",errno);
             break; //break while-loop
          }
-         else if(rc > 0){
+         else if(rc > 0)
+         {
             //successfully decreased semaphore, this means that there must be something in the array
-            msocket_t *msocket;
-            uint32_t i;
-            uint32_t len;
+            void *item;
             MUTEX_LOCK(self->mutex);
             assert(adt_ary_length(&self->cleanupItems)>0);
-            msocket = (msocket_t*) adt_ary_shift(&self->cleanupItems);
-            msocket_delete(msocket);
-            len=adt_ary_length(&self->clients);
-            for(i=0;i<len;i++){
-               msocket_t *elem = (msocket_t*) *adt_ary_get(&self->clients,(int32_t) i);
-               if(elem == msocket){
-                  adt_ary_splice(&self->clients,i,1);
-                  break;
-               }
-            }
+            item = adt_ary_shift(&self->cleanupItems);
+            self->pDestructor(item);
             MUTEX_UNLOCK(self->mutex);
          }
-         else{
+         else
+         {
             //failed to decrease semaphore, check if time to close
             MUTEX_LOCK(self->mutex);
             stopThread = self->cleanupStop;
             MUTEX_UNLOCK(self->mutex);
-            if(stopThread){
+            if(stopThread)
+            {
                break; //break while-loop
             }
          }

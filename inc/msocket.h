@@ -24,7 +24,7 @@
 #include <arpa/inet.h>
 #endif
 #include "osmacro.h"
-#include "bytearray.h"
+#include "adt_bytearray.h"
 
 /**************************** Constants and Types ****************************/
 
@@ -73,7 +73,7 @@ typedef struct msocket_t{
 #endif
    msocketAddrInfo_t tcpInfo;
    msocketAddrInfo_t udpInfo;
-   bytearray_t tcpRxBuf;
+   adt_bytearray_t tcpRxBuf;
    msocket_handler_t *handlerTable;
    void *handlerArg;
    uint8_t state; //TCP socket state
@@ -89,6 +89,7 @@ int8_t msocket_create(msocket_t *self,uint8_t addressFamily);
 void msocket_destroy(msocket_t *self);
 msocket_t *msocket_new(uint8_t addressFamily);
 void msocket_delete(msocket_t *self);
+void msocket_vdelete(void *arg);
 void msocket_close(msocket_t *self);
 int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const char *addr);
 #ifndef _WIN32
