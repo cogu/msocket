@@ -11,6 +11,7 @@
 
 #ifdef _WIN32
 #pragma comment(lib,"ws2_32.lib")
+#include <process.h>
 
 #else
 #include <unistd.h>
@@ -59,9 +60,11 @@ int8_t msocket_create(msocket_t *self,uint8_t addressFamily){
       case AF_INET6:
          self->addressFamily = AF_INET6;
          break;
+#ifndef _WIN32
       case AF_LOCAL:
          self->addressFamily = AF_UNIX;
          break;
+#endif
       default:
          return -1;//invalid/unsupported address family
       }
@@ -205,7 +208,7 @@ int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const c
                  saddr.sin_addr.s_addr = INADDR_ANY;
            }
            else{
-              saddr.sin_addr.s_addr = inet_addr(addr);
+              inet_pton(AF_INET, addr, &saddr);
            }
            saddr.sin_port = htons(port);
         }
@@ -289,6 +292,7 @@ int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const c
      return -1;
 }
 
+#ifndef _WIN32
 int8_t msocket_unix_listen(msocket_t *self, const char *socket_path)
 {
    if(self != 0){
@@ -339,6 +343,7 @@ int8_t msocket_unix_listen(msocket_t *self, const char *socket_path)
      errno = EINVAL;
      return -1;
 }
+#endif
 
 msocket_t *msocket_accept(msocket_t *self,msocket_t *child){
    if((self != 0) && (self->state == MSOCKET_STATE_LISTENING) ){
@@ -379,9 +384,11 @@ msocket_t *msocket_accept(msocket_t *self,msocket_t *child){
       else if (self->addressFamily == AF_INET){
          sockfd=accept(self->tcpsockfd,(struct sockaddr *) &cli_addr, &cli_len); //blocking call (close tcpsockfd from another thread to unblock)
       }
+#ifndef _WIN32
       else if (self->addressFamily == AF_LOCAL){
          sockfd=accept(self->tcpsockfd, NULL, NULL);
       }
+#endif
       else
       {
          assert(0);
@@ -449,24 +456,28 @@ int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port){
       SOCKET_T sockfd;
       struct sockaddr_in saddr;
       struct sockaddr_in6 saddr6;
-      if(self->addressFamily == AF_INET6){
+      if(self->addressFamily == AF_INET6) {
+         memset(&saddr6, 0, sizeof(saddr6));
          rc = inet_pton(AF_INET6, addr, &(saddr6.sin6_addr));
       }
       else{
+         memset(&saddr, 0, sizeof(saddr));
          rc = inet_pton(AF_INET, addr, &(saddr.sin_addr));
       }
 
       if(rc != 0){
          self->tcpInfo.port = port;
-         strcpy(self->tcpInfo.addr,addr);
-         if(self->addressFamily == AF_INET6){
-            memset(&saddr6, 0,sizeof(saddr6));
+#ifdef _WIN32
+         strcpy_s(self->tcpInfo.addr, MSOCKET_ADDRSTRLEN, addr);
+#else
+         strcpy(self->tcpInfo.addr, addr);
+#endif
+         if(self->addressFamily == AF_INET6){            
             saddr6.sin6_family = AF_INET6;
             saddr6.sin6_port = htons((uint16_t) self->tcpInfo.port);
             sockfd = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP);
          }
-         else{
-            memset(&saddr, 0,sizeof(saddr));
+         else{            
             saddr.sin_family = AF_INET;
             saddr.sin_port = htons((uint16_t) self->tcpInfo.port);
             sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -502,6 +513,7 @@ int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port){
    return -1;
 }
 
+#ifndef _WIN32
 int8_t msocket_unix_connect(msocket_t *self,const char *socketPath)
 {
    if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) == 0) && (self->handlerTable != 0) ){
@@ -544,6 +556,7 @@ int8_t msocket_unix_connect(msocket_t *self,const char *socketPath)
    errno = EINVAL;
    return -1;
 }
+#endif
 
 /**
  * send UDP message
@@ -623,7 +636,11 @@ THREAD_PROTO(ioTask,arg){
       fd_set readfds;
       uint8_t *recvBuf;
       int activity;
+#ifdef _WIN32
+      unsigned int max_sd;
+#else
       int max_sd;
+#endif
       struct timeval timeout;
 
       timeout.tv_sec=0;
@@ -760,13 +777,26 @@ static int msocket_udpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
 
 static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
    if( len < 0 ){
+#ifdef _WIN32      
+      int lastError = WSAGetLastError();
+      if (lastError == WSAECONNRESET)
+      {
+         len = 0; //change to socket closed event
+      }
+      else
+      {
+         fprintf(stderr, "[MSOCKET] recv error %d\n", lastError);
+         return -1;
+      }
+#else
       if(errno == ECONNRESET){
          len = 0; //change to socket closed event
       }
-      else{
+      else{         
          perror("msocket: recv error");
          return -1;
       }
+#endif
    }
    if( self != 0 ){
 //      printf("msocket_tcpRxHandler %d\n",len);

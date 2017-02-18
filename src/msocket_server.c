@@ -160,11 +160,15 @@ void msocket_server_unix_start(msocket_server_t *self,const char *socketPath)
          else
          {
             self->socketPath=strdup(socketPath);
+#ifdef _WIN32
+            _unlink(socketPath);
+#else
             unlink(socketPath);
+#endif
          }
       }
-      msocket_sethandler(self->acceptSocket,&self->handlerTable,self->handlerArg);
-      msocket_start_io(self->acceptSocket);
+//      msocket_sethandler(self->acceptSocket,&self->handlerTable,self->handlerArg);
+//      msocket_start_io(self->acceptSocket);
 #ifdef _WIN32
    THREAD_CREATE(self->acceptThread,acceptTask,(void*) self,self->acceptThreadId);
    THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self,self->cleanupThreadId);
@@ -212,6 +216,7 @@ THREAD_PROTO(acceptTask,arg){
                THREAD_RETURN(rc);
             }
          }
+#ifndef _WIN32
          if (self->socketPath != 0)
          {
             rc = msocket_unix_listen(self->acceptSocket,self->socketPath);
@@ -220,9 +225,11 @@ THREAD_PROTO(acceptTask,arg){
                THREAD_RETURN(rc);
             }
          }
+#endif
          while(1){
+            msocket_t *child;
             printf("accept wait\n");
-            msocket_t *child = msocket_accept(self->acceptSocket,0);
+            child = msocket_accept(self->acceptSocket,0);
             printf("accept return\n");
             if( child == 0 ){
                break;

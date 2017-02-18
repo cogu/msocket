@@ -17,6 +17,7 @@
 #endif
 #include <errno.h>
 #include <assert.h>
+#include <stdint.h>
 #include "osutil.h"
 /**************************** Constants and Types ****************************/
 
@@ -54,10 +55,6 @@ int8_t _sem_test(SEMAPHORE_T *sem){
 #endif
 }
 
-//increases count of semaphore
-void _sem_post(SEMAPHORE_T *sem){
-   sem_post(sem);
-}
 
 //increases count of semaphore up to count of 1
 //for Win32 it is assumed that the caller created the semaphore using the SEMAPHORE_EV_CREATE-macro

@@ -19,7 +19,6 @@
 #define PROG_MAX_STACK_SIZE 65536
 /********************************* Functions *********************************/
 int8_t _sem_test(SEMAPHORE_T *sem);
-void _sem_post(SEMAPHORE_T *sem);
 void _sem_ev_post(SEMAPHORE_T *sem);
 
 #endif //OSUTIL_H
