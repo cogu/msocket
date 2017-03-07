@@ -5,12 +5,12 @@
 * \brief     msocket C++ client example
 * \details   https://github.com/cogu/msocket
 *
-* Copyright (c) 2014-2017 Pierre Svärd
+* Copyright (c) 2017 Pierre Svärd
 *
 ******************************************************************************/
 
 
-#include "MsocketCpp.h"
+#include "MSocket.hpp"
 
 #include <functional>
 #include <iostream>
@@ -27,12 +27,12 @@ class EchoClient {
 
 public:
 
-   typedef Msocket::PortNumberT PortNumberT;
-   typedef Msocket::BufferDataT BufferDataT;
-   typedef Msocket::BufferSizeT BufferSizeT;
+   typedef MSocket::PortNumberT PortNumberT;
+   typedef MSocket::BufferDataT BufferDataT;
+   typedef MSocket::BufferSizeT BufferSizeT;
 
    EchoClient() : m_msocket(AF_INET), m_connected(false) {
-      Msocket::HandlerD handler;
+      MSocket::HandlerT handler;
       handler.connectHandler = std::bind(&EchoClient::connectHandler, this, _1, _2);
       handler.disconnectedHandler = std::bind(&EchoClient::disconnectHandler, this);
       handler.tcpDataHandler = std::bind(&EchoClient::dataHandler, this, _1, _2, _3);
@@ -48,7 +48,7 @@ public:
    }
 
    bool send(const std::string& message) {
-      return m_msocket.send((Msocket::BufferDataT*)message.c_str(), message.size());
+      return m_msocket.send((MSocket::BufferDataT*)message.c_str(), message.size());
    }
 
 protected:
@@ -74,7 +74,7 @@ protected:
       return true;
    }
 
-   Msocket m_msocket;
+   MSocket m_msocket;
    std::atomic<bool> m_connected;
 };
 

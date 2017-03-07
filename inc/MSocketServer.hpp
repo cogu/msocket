@@ -1,18 +1,18 @@
 /*****************************************************************************
-* \file      MsocketServerCpp.cpp
+* \file      MSocketServer.hpp
 * \author    Pierre Svärd
 * \date      2017-03-05
-* \brief     msocket_server C++ wrapper
+* \brief     msocket server C++ wrapper
 * \details   https://github.com/cogu/msocket
 *
-* Copyright (c) 2014-2017 Pierre Svärd
+* Copyright (c) 2017 Pierre Svärd
 *
 ******************************************************************************/
 
-#ifndef MSOCKETSERVERCPP_H_
-#define MSOCKETSERVERCPP_H_
+#ifndef MSOCKETSERVER_HPP
+#define MSOCKETSERVER_HPP
 
-#include <MsocketCpp.h>
+#include <MSocket.hpp>
 
 extern "C" {
 #include "msocket_server.h"
@@ -21,13 +21,13 @@ extern "C" {
 #include <memory>
 #include <functional>
 
-class MsocketServer {
+class MSocketServer {
 public:
 
-	MsocketServer(uint8_t addressFamily);
-	virtual ~MsocketServer();
+	MSocketServer(MSocket::AddressFamilyT addressFamily);
+	virtual ~MSocketServer();
 
-	virtual void setHandler(Msocket::HandlerD& handler);
+	virtual void setHandler(MSocket::HandlerT& handler);
 	virtual void start(const std::string& udpAddr, uint16_t udpPort, uint16_t tcpPort);
 	virtual void startUnix(const std::string& socketPath);
 
@@ -40,9 +40,9 @@ protected:
    static void onCleanupConnection(void *arg);
 
 	msocket_server_t* m_msocket_server;
-	Msocket::HandlerD m_handler;
+	MSocket::HandlerT m_handler;
 	CleanupCallback m_cleanupCallback;
 
 };
 
-#endif /* MSOCKETSERVERCPP_H_ */
+#endif /* MSOCKETSERVER_HPP */

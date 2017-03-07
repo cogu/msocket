@@ -5,11 +5,11 @@
 * \brief     msocket C++ server example
 * \details   https://github.com/cogu/msocket
 *
-* Copyright (c) 2014-2017 Pierre Svärd
+* Copyright (c) 2017 Pierre Svärd
 *
 ******************************************************************************/
 
-#include "MsocketServerCpp.h"
+#include "MSocketServer.hpp"
 
 #include <functional>
 #include <iostream>
@@ -25,12 +25,12 @@ class EchoServer {
 
 public:
 
-   typedef Msocket::PortNumberT PortNumberT;
-   typedef Msocket::BufferDataT BufferDataT;
-   typedef Msocket::BufferSizeT BufferSizeT;
+   typedef MSocket::PortNumberT PortNumberT;
+   typedef MSocket::BufferDataT BufferDataT;
+   typedef MSocket::BufferSizeT BufferSizeT;
 
    EchoServer(PortNumberT port) : m_server(AF_INET), m_port(port) {
-      Msocket::HandlerD handler;
+      MSocket::HandlerT handler;
       handler.tcpAcceptHandler = std::bind(&EchoServer::acceptHandler, this, _1);
       m_server.setHandler(handler);
    }
@@ -38,7 +38,7 @@ public:
    void acceptHandler(MsocketPtr msocketPtr) {
       std::cout << "[SERVER] connection accepted" << std::endl;
       m_msocketPtr = msocketPtr;
-      Msocket::HandlerD handler;
+      MSocket::HandlerT handler;
       handler.tcpDataHandler = std::bind(&EchoServer::dataHandler, this,  _1, _2, _3);
       handler.disconnectedHandler = std::bind(&EchoServer::disconnectedHandler, this);
       m_msocketPtr->setHandler(handler);
@@ -80,7 +80,7 @@ public:
    }
 
 protected:
-   MsocketServer m_server;
+   MSocketServer m_server;
    uint16_t m_port;
    MsocketPtr m_msocketPtr;
 };

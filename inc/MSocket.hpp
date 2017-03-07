@@ -1,16 +1,16 @@
 /*****************************************************************************
-* \file      MsocketCpp.cpp
+* \file      MSocket.hpp
 * \author    Pierre Svärd
 * \date      2017-03-05
 * \brief     msocket C++ wrapper
 * \details   https://github.com/cogu/msocket
 *
-* Copyright (c) 2014-2017 Pierre Svärd
+* Copyright (c) 2017 Pierre Svärd
 *
 ******************************************************************************/
 
-#ifndef MSOCKETPP_H
-#define MSOCKETPP_H
+#ifndef MSOCKET_HPP
+#define MSOCKET_HPP
 
 extern "C" {
 #include "msocket.h"
@@ -20,18 +20,19 @@ extern "C" {
 #include <memory>
 #include <string>
 
-class Msocket;
+class MSocket;
 
-typedef std::shared_ptr<Msocket> MsocketPtr;
+typedef std::shared_ptr<MSocket> MsocketPtr;
 
-class Msocket {
-   friend class MsocketServer;
+class MSocket {
+   friend class MSocketServer;
 public:
 
    typedef int8_t ErrorCodeT;
    typedef uint16_t PortNumberT;
    typedef uint8_t BufferDataT;
    typedef uint32_t BufferSizeT;
+   typedef uint8_t AddressFamilyT;
 
    enum StateT {
       StateNone = MSOCKET_STATE_NONE,
@@ -56,7 +57,7 @@ public:
    typedef std::function<void(uint32_t elapsed)> TcpInactivityHandler;
    typedef std::function<void(const char*, PortNumberT, const BufferDataT*, BufferSizeT)> UdpMsgHandler;
 
-   struct HandlerD {
+   struct HandlerT {
       TcpAcceptHandler tcpAcceptHandler;
       ConnectHandler connectHandler;
       TcpDataHandler tcpDataHandler;
@@ -65,9 +66,9 @@ public:
       UdpMsgHandler udpMsgHandler;
    };
 
-   Msocket(uint8_t addressFamily);
-   virtual ~Msocket();
-   virtual void setHandler(HandlerD& handler);
+   MSocket(AddressFamilyT addressFamily);
+   virtual ~MSocket();
+   virtual void setHandler(HandlerT& handler);
    virtual void close();
    virtual bool connect(const std::string& socketPath, PortNumberT port);
    virtual bool unixConnect(const std::string& socketPath);
@@ -84,7 +85,7 @@ public:
 
 protected:
 
-   Msocket(msocket_t* msocket);
+   MSocket(msocket_t* msocket);
 
    static void onConnectedWrapper(void *arg, const char *addr, uint16_t port);
    static ErrorCodeT onTcpDataWrapper(void *arg, const BufferDataT *dataBuf, BufferSizeT dataLen, BufferSizeT *parseLen);
@@ -93,8 +94,8 @@ protected:
    static void onUdpMsgWrapper(void *arg, const char *addr, PortNumberT port, const BufferDataT *dataBuf, BufferSizeT dataLen);
 
    msocket_t* m_msocket;
-   HandlerD m_handler;
+   HandlerT m_handler;
    ErrorCodeT m_error = 0;
 };
 
-#endif /* MSOCKETPP_H */
+#endif /* MSOCKET_HPP */
