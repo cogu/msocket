@@ -55,7 +55,7 @@ public:
    typedef std::function<uint8_t(const BufferDataT*, BufferSizeT, BufferSizeT&)> TcpDataHandler;
    typedef std::function<void()> DisconnectedHandler;
    typedef std::function<void(uint32_t elapsed)> TcpInactivityHandler;
-   typedef std::function<void(const char*, PortNumberT, const BufferDataT*, BufferSizeT)> UdpMsgHandler;
+   typedef std::function<void(const std::string&, PortNumberT, const BufferDataT*, BufferSizeT)> UdpMsgHandler;
 
    struct HandlerT {
       TcpAcceptHandler tcpAcceptHandler;
