@@ -40,9 +40,14 @@ void MSocketServer::cleanupConnection(MSocketServer::CleanupCallback callback) {
 }
 
 void MSocketServer::onTcpAcceptWrapper(void *arg, struct msocket_server_t *srv, struct msocket_t *msocket) {
+
+   if(arg == NULL) {
+      return;
+   }
+
    MSocket::HandlerT* handler = static_cast<MSocket::HandlerT*>(arg);
 
-   MsocketPtr msocketPtr(new MSocket(msocket));
+   MSocketPtr msocketPtr(new MSocket(msocket));
 
    if(handler->tcpAcceptHandler) {
       handler->tcpAcceptHandler(msocketPtr);

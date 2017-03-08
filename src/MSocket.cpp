@@ -74,7 +74,7 @@ bool MSocket::unixListen(const std::string& socketPath) {
 }
 #endif
 
-MsocketPtr MSocket::accept(MsocketPtr childPtr) {
+MSocketPtr MSocket::accept(MSocketPtr childPtr) {
 
    msocket_t* msocket = NULL;
    if(childPtr.get()) {
@@ -82,7 +82,7 @@ MsocketPtr MSocket::accept(MsocketPtr childPtr) {
    }
    msocket_t* child_msocket = msocket_accept(m_msocket, msocket);
 
-   return MsocketPtr(new MSocket(child_msocket));
+   return MSocketPtr(new MSocket(child_msocket));
 }
 
 void MSocket::startIO() {
@@ -94,6 +94,11 @@ MSocket::StateT MSocket::state() {
 }
 
 void MSocket::onConnectedWrapper(void *arg, const char *addr, PortNumberT port) {
+
+   if(arg == NULL) {
+      return;
+   }
+
    HandlerT* handler = static_cast<HandlerT*>(arg);
    std::string addrString(addr);
    if(handler->connectHandler) {
@@ -102,6 +107,11 @@ void MSocket::onConnectedWrapper(void *arg, const char *addr, PortNumberT port) 
 }
 
 int8_t MSocket::onTcpDataWrapper(void *arg, const BufferDataT *dataBuf, BufferSizeT dataLen, BufferSizeT *parseLen) {
+
+   if(arg == NULL) {
+      return -1;
+   }
+
    HandlerT* handler = static_cast<HandlerT*>(arg);
    if(handler->tcpDataHandler) {
       if( handler->tcpDataHandler(dataBuf, dataLen, *parseLen) ) {
@@ -112,6 +122,11 @@ int8_t MSocket::onTcpDataWrapper(void *arg, const BufferDataT *dataBuf, BufferSi
 }
 
 void MSocket::onDisconnectedWrapper(void *arg) {
+
+   if(arg == NULL) {
+      return;
+   }
+
    HandlerT* handler = static_cast<HandlerT*>(arg);
    if(handler->disconnectedHandler) {
       handler->disconnectedHandler();
@@ -123,8 +138,14 @@ void MSocket::onTcpInactivityWrapper(uint32_t elapsed) {
 }
 
 void MSocket::onUdpMsgWrapper(void *arg, const char *addr, PortNumberT port, const BufferDataT *dataBuf, BufferSizeT dataLen) {
+
+   if(arg == NULL) {
+      return;
+   }
+
    HandlerT* handler = static_cast<HandlerT*>(arg);
    if(handler->udpMsgHandler) {
-      handler->udpMsgHandler(addr, port, dataBuf, dataLen);
+      std::string addrString(addr);
+      handler->udpMsgHandler(addrString, port, dataBuf, dataLen);
    }
 }
