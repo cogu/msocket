@@ -35,7 +35,7 @@ public:
       m_server.setHandler(handler);
    }
 
-   void acceptHandler(MsocketPtr msocketPtr) {
+   void acceptHandler(MSocketPtr msocketPtr) {
       std::cout << "[SERVER] connection accepted" << std::endl;
       m_msocketPtr = msocketPtr;
       MSocket::HandlerT handler;
@@ -54,7 +54,7 @@ public:
 
    void disconnectedHandler() {
       std::cout << "[SERVER] client connection lost" << std::endl;
-      m_msocketPtr = MsocketPtr(NULL);
+      m_msocketPtr = MSocketPtr(NULL);
    }
 
    void start() {
@@ -82,7 +82,7 @@ public:
 protected:
    MSocketServer m_server;
    uint16_t m_port;
-   MsocketPtr m_msocketPtr;
+   MSocketPtr m_msocketPtr;
 };
 
 

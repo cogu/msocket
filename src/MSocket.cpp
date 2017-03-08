@@ -74,7 +74,7 @@ bool MSocket::unixListen(const std::string& socketPath) {
 }
 #endif
 
-MsocketPtr MSocket::accept(MsocketPtr childPtr) {
+MSocketPtr MSocket::accept(MSocketPtr childPtr) {
 
    msocket_t* msocket = NULL;
    if(childPtr.get()) {
@@ -82,7 +82,7 @@ MsocketPtr MSocket::accept(MsocketPtr childPtr) {
    }
    msocket_t* child_msocket = msocket_accept(m_msocket, msocket);
 
-   return MsocketPtr(new MSocket(child_msocket));
+   return MSocketPtr(new MSocket(child_msocket));
 }
 
 void MSocket::startIO() {

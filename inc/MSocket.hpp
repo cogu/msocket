@@ -22,7 +22,7 @@ extern "C" {
 
 class MSocket;
 
-typedef std::shared_ptr<MSocket> MsocketPtr;
+typedef std::shared_ptr<MSocket> MSocketPtr;
 
 class MSocket {
    friend class MSocketServer;
@@ -50,7 +50,7 @@ public:
       ModeTCP = MSOCKET_MODE_TCP
    };
 
-   typedef std::function<void(MsocketPtr)> TcpAcceptHandler;
+   typedef std::function<void(MSocketPtr)> TcpAcceptHandler;
    typedef std::function<void(const std::string&, PortNumberT)> ConnectHandler;
    typedef std::function<uint8_t(const BufferDataT*, BufferSizeT, BufferSizeT&)> TcpDataHandler;
    typedef std::function<void()> DisconnectedHandler;
@@ -78,7 +78,7 @@ public:
    #ifndef _WIN32
    virtual bool unixListen(const std::string& socketPath);
    #endif
-   MsocketPtr accept(MsocketPtr childPtr);
+   MSocketPtr accept(MSocketPtr childPtr);
    virtual void startIO();
    virtual StateT state();
    virtual ErrorCodeT error() { return m_error; }
