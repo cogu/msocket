@@ -52,7 +52,7 @@ public:
 
    typedef std::function<void(MSocketPtr)> TcpAcceptHandler;
    typedef std::function<void(const std::string&, PortNumberT)> ConnectHandler;
-   typedef std::function<uint8_t(const BufferDataT*, BufferSizeT, BufferSizeT&)> TcpDataHandler;
+   typedef std::function<bool(const BufferDataT*, BufferSizeT, BufferSizeT&)> TcpDataHandler;
    typedef std::function<void()> DisconnectedHandler;
    typedef std::function<void(uint32_t elapsed)> TcpInactivityHandler;
    typedef std::function<void(const std::string&, PortNumberT, const BufferDataT*, BufferSizeT)> UdpMsgHandler;
