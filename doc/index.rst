@@ -11,8 +11,8 @@ Contents:
 .. toctree::
    :maxdepth: 1
    
-   socket_server
-   msocket
+   server
+   client
 
 
 
