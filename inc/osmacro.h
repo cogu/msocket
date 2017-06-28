@@ -34,6 +34,7 @@
 #define THREAD_T HANDLE
 #define THREAD_CREATE(thread,func,arg,id) thread = (HANDLE) _beginthreadex( NULL, 0, func, (void*) arg, 0, &id );
 #define THREAD_PROTO(name,arg) unsigned __stdcall name( void *arg )
+#define THREAD_PROTO_PTR(name,arg) unsigned (__stdcall *name)( void *arg )
 #define THREAD_RETURN(retval) return (unsigned int) retval
 #define THREAD_JOIN(thread) WaitForSingleObject( thread, INFINITE );
 #define THREAD_DESTROY(thread) CloseHandle( thread )
@@ -42,6 +43,7 @@
 #define THREAD_CREATE(thread,func,arg) pthread_create(&thread,NULL,func,arg);
 #define THREAD_CREATE_ATTR(thread,attr,func,arg) pthread_create(&thread,&attr,func,arg);
 #define THREAD_PROTO(name,arg) void* name(void *arg)
+#define THREAD_PROTO_PTR(name,arg) void* (*name)(void *arg)
 #define THREAD_RETURN(retval) return (void*) (intptr_t) retval
 #define THREAD_JOIN(thread) {void *status; pthread_join(thread, &status);}
 #define THREAD_DESTROY(thread)

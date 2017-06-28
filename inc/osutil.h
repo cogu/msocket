@@ -14,6 +14,7 @@
 
 /********************************* Includes **********************************/
 #include "osmacro.h"
+#include <stdint.h>
 /**************************** Constants and Types ****************************/
 #define SEMAPHORE_EV_POST(sem) _sem_ev_post(&sem);
 #define PROG_MAX_STACK_SIZE 65536
