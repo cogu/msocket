@@ -592,6 +592,9 @@ int8_t msocket_sendto(msocket_t *self,const char *addr,uint16_t port,const void 
    return -1;
 }
 
+/**
+ * Returns 0 on success, -1 on failure
+ */
 int8_t msocket_send(msocket_t *self,void *msgData,uint32_t msgLen){
    if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) != 0) ){
       int n;
