@@ -453,6 +453,8 @@ int8_t msocket_start_io(msocket_t *self){
 int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port){
    if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) == 0) && (self->handlerTable != 0) ){
       int rc;
+      int sockoptval;
+      socklen_t sockoptlen = sizeof(sockoptval);
       SOCKET_T sockfd;
       struct sockaddr_in saddr;
       struct sockaddr_in6 saddr6;
@@ -495,6 +497,9 @@ int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port){
             SOCKET_CLOSE(sockfd);
             return rc;
          }
+         /*set socket options */
+         sockoptval = 1;
+         setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&sockoptval, sockoptlen);
          MUTEX_LOCK(self->mutex);
          self->tcpsockfd = sockfd;
          self->socketMode |= MSOCKET_MODE_TCP;
