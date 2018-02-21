@@ -95,6 +95,11 @@ void msocket_server_destroy(msocket_server_t *self){
          free(self->udpAddr);
       }
       if(self->socketPath != 0){
+#ifdef _WIN32
+            _unlink(self->socketPath);
+#else
+            unlink(self->socketPath);
+#endif
          free(self->socketPath);
       }
    }
