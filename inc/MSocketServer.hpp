@@ -12,7 +12,7 @@
 #ifndef MSOCKETSERVER_HPP
 #define MSOCKETSERVER_HPP
 
-#include <MSocket.hpp>
+#include <MSocketWrapper.hpp>
 
 extern "C" {
 #include "msocket_server.h"

@@ -1,16 +1,16 @@
 /*****************************************************************************
-* \file      MSocket.hpp
+* \file      MSocketWrapper.hpp
 * \author    Pierre Svärd
 * \date      2017-03-05
 * \brief     msocket C++ wrapper
 * \details   https://github.com/cogu/msocket
 *
-* Copyright (c) 2017 Pierre Svärd
+* Copyright (c) 2017-2018 Pierre Svärd
 *
 ******************************************************************************/
 
-#ifndef MSOCKET_HPP
-#define MSOCKET_HPP
+#ifndef MSOCKET_WRAPPER_HPP
+#define MSOCKET_WRAPPER_HPP
 
 extern "C" {
 #include "msocket.h"
@@ -98,4 +98,4 @@ protected:
    ErrorCodeT m_error = 0;
 };
 
-#endif /* MSOCKET_HPP */
+#endif /* MSOCKET_WRAPPER_HPP */

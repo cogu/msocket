@@ -9,7 +9,7 @@
 *
 ******************************************************************************/
 
-#include <MSocket.hpp>
+#include <MSocketWrapper.hpp>
 
 MSocket::MSocket(AddressFamilyT addressFamily) {
    m_msocket = msocket_new(addressFamily);
