@@ -233,9 +233,13 @@ THREAD_PROTO(acceptTask,arg){
 #endif
          while(1){
             msocket_t *child;
+#ifdef MSOCKET_DEBUG
             printf("accept wait\n");
+#endif
             child = msocket_accept(self->acceptSocket,0);
+#ifdef MSOCKET_DEBUG
             printf("accept return\n");
+#endif
             if( child == 0 ){
                break;
             }
@@ -248,7 +252,9 @@ THREAD_PROTO(acceptTask,arg){
          msocket_delete(self->acceptSocket);
       }
    }
+#ifdef MSOCKET_DEBUG
    printf("acceptThread exit\n");
+#endif   
    THREAD_RETURN(0);
 }
 
@@ -270,7 +276,7 @@ THREAD_PROTO(cleanupTask,arg)
          if(rc < 0)
          {
             //failure
-            printf("cleanupTask errno=%d\n",errno);
+            printf("Error in cleanupTask, errno=%d\n",errno);
             break; //break while-loop
          }
          else if(rc > 0)
