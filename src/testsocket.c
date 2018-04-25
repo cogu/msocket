@@ -44,6 +44,8 @@ void testsocket_create(testsocket_t *self)
    {
       adt_bytearray_create(&self->pendingClient, 0);
       adt_bytearray_create(&self->pendingServer, 0);
+      memset(&self->clientHandlerTable, 0, sizeof(msocket_handler_t));
+      memset(&self->serverHandlerTable, 0, sizeof(msocket_handler_t));
    }
 }
 
