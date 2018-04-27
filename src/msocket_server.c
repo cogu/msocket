@@ -120,7 +120,7 @@ void msocket_server_delete(msocket_server_t *self){
    }
 }
 
-void msocket_server_sethandler(msocket_server_t *self,msocket_handler_t *handler, void *handlerArg){
+void msocket_server_sethandler(msocket_server_t *self, const msocket_handler_t *handler, void *handlerArg){
    if(self != 0){
       memcpy(&self->handlerTable,handler,sizeof(msocket_handler_t));
       self->handlerArg = handlerArg;

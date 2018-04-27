@@ -104,7 +104,7 @@ int main(int argc, char **argv)
       return 1;
    }
 #endif
-   //start server   
+   //start server
    memset(&handler, 0, sizeof(handler));
    printf("[SERVER] starting server on port %d\n", (int)m_port);
    handler.tcp_accept = tcp_new_connection;
