@@ -217,7 +217,7 @@ THREAD_PROTO(acceptTask,arg){
          if(self->tcpPort != 0){
             rc = msocket_listen(self->acceptSocket,MSOCKET_MODE_TCP,self->tcpPort,0);
             if(rc<0){
-               printf("*** WARNING: failed to bind to TCP port %d ***\n",self->udpPort);
+               printf("*** WARNING: failed to bind to TCP port %d ***\n",self->tcpPort);
                THREAD_RETURN(rc);
             }
          }
