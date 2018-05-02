@@ -603,15 +603,17 @@ int8_t msocket_sendto(msocket_t *self,const char *addr,uint16_t port,const void 
 int8_t msocket_send(msocket_t *self,const void *msgData,uint32_t msgLen){
    if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) != 0) ){
       int n;
+      assert(msgData != 0);
+      const uint8_t *p = (const uint8_t*) msgData;
       uint32_t remain = msgLen;
       while(remain>0){
-         n = send(self->tcpsockfd,msgData,remain,0);
+         n = send(self->tcpsockfd,p,remain,0);
          if(n <= 0){
             perror("msocket: send failed\n");
             return -1;
          }
          remain -= n;
-         msgData += n;
+         p += n;
       }
       MUTEX_LOCK(self->mutex);
       msocket_timeoutReset(self);
