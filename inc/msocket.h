@@ -106,7 +106,7 @@ int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port);
 int8_t msocket_unix_connect(msocket_t *self,const char *socketPath);
 #endif
 int8_t msocket_sendto(msocket_t *self,const char *addr,uint16_t port,const void *msgData,uint32_t msgLen);
-int8_t msocket_send(msocket_t *self,void *msgData,uint32_t msgLen);
+int8_t msocket_send(msocket_t *self,const void *msgData,uint32_t msgLen);
 int8_t msocket_state(msocket_t *self);
 
 

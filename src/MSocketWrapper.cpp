@@ -1,5 +1,5 @@
 /*****************************************************************************
-* \file      MSocket.cpp
+* \file      MSocketWrapper.cpp
 * \author    Pierre Svärd
 * \date      2017-03-05
 * \brief     msocket C++ wrapper
@@ -52,7 +52,7 @@ bool MSocket::unixConnect(const std::string& socketPath) {
    return m_error == 0;
 }
 
-bool MSocket::send(BufferDataT* msgData, BufferSizeT msgLen) {
+bool MSocket::send(const BufferDataT* msgData, BufferSizeT msgLen) {
    m_error = msocket_send(m_msocket, msgData, msgLen);
    return m_error == 0;
 }

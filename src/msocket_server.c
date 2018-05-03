@@ -120,7 +120,7 @@ void msocket_server_delete(msocket_server_t *self){
    }
 }
 
-void msocket_server_sethandler(msocket_server_t *self,msocket_handler_t *handler, void *handlerArg){
+void msocket_server_sethandler(msocket_server_t *self, const msocket_handler_t *handler, void *handlerArg){
    if(self != 0){
       memcpy(&self->handlerTable,handler,sizeof(msocket_handler_t));
       self->handlerArg = handlerArg;
@@ -217,7 +217,7 @@ THREAD_PROTO(acceptTask,arg){
          if(self->tcpPort != 0){
             rc = msocket_listen(self->acceptSocket,MSOCKET_MODE_TCP,self->tcpPort,0);
             if(rc<0){
-               printf("*** WARNING: failed to bind to TCP port %d ***\n",self->udpPort);
+               printf("*** WARNING: failed to bind to TCP port %d ***\n",self->tcpPort);
                THREAD_RETURN(rc);
             }
          }

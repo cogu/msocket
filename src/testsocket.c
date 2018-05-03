@@ -90,7 +90,7 @@ void testsocket_vdelete(void *arg)
 /**
  * Sends data from the server to the client
  */
-int8_t testsocket_serverSend(testsocket_t *self,void *msgData,uint32_t msgLen)
+int8_t testsocket_serverSend(testsocket_t *self,const void *msgData,uint32_t msgLen)
 {
    if (self != 0)
    {
@@ -100,9 +100,9 @@ int8_t testsocket_serverSend(testsocket_t *self,void *msgData,uint32_t msgLen)
 }
 
 /**
- * Sends data fromt the client to the server
+ * Sends data from the client to the server
  */
-int8_t testsocket_clientSend(testsocket_t *self,void *msgData,uint32_t msgLen)
+int8_t testsocket_clientSend(testsocket_t *self,const void *msgData,uint32_t msgLen)
 {
    if (self != 0)
    {
