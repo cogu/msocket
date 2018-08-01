@@ -1,3 +1,13 @@
+#build and project files
+**/Debug/
+**/Release
+**/build/
+**.vs/
+*.VC.db
+*.VC.opendb
+*.exe.stackdump
+language.settings.xml
+
 #sphinx-doc files
 /doc/make.bat
 /doc/_build/
