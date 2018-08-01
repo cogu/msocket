@@ -245,7 +245,7 @@ THREAD_PROTO(acceptTask,arg){
             }
             else{
                if(self->handlerTable.tcp_accept != 0){
-                  self->handlerTable.tcp_accept(self->handlerArg,self,child);
+                  self->handlerTable.tcp_accept(self->handlerArg, self, child);
                }
             }
          }

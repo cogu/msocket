@@ -20,7 +20,7 @@
 
 
 
-typedef struct msocket_server_t{
+typedef struct msocket_server_tag{
    msocket_t *acceptSocket;
    uint16_t tcpPort;
    uint16_t udpPort;

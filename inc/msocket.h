@@ -48,11 +48,11 @@
 #define MSOCKET_MIN_RCV_BUF_SIZE (MSOCKET_RCV_BUF_GROW_SIZE)
 
 struct msocket_t;
-struct msocket_server_t;
+struct msocket_server_tag;
 
 
 typedef struct msocket_handler_t{
-   void (*tcp_accept)(void *arg, struct msocket_server_t *srv,struct msocket_t *msocket);
+   void (*tcp_accept)(void *arg, struct msocket_server_tag *srv,struct msocket_t *msocket);
    void (*udp_msg)(void *arg, const char *addr, uint16_t port, const uint8_t *dataBuf, uint32_t dataLen);
    void (*tcp_connected)(void *arg,const char *addr, uint16_t port);
    void (*tcp_disconnected)(void *arg);
