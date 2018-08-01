@@ -25,10 +25,18 @@
 #include <string.h>
 #include <malloc.h>
 #include <assert.h>
+#ifndef MSOCKET_DEBUG
+#define MSOCKET_DEBUG 0
+#endif
 #include "msocket.h"
 
-//temporary
+#if MSOCKET_DEBUG
 #include <stdio.h>
+#endif
+
+#ifndef _WIN32
+#define INVALID_SOCKET -1
+#endif
 
 /****************** Constants and Types ***************************/
 #define MSG_BUF_SIZE 8192
@@ -43,12 +51,16 @@ static int msocket_udpRxHandler(msocket_t *self,uint8_t *recvBuf, int len);
 static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len);
 static void msocket_timeoutReset(msocket_t *self);
 static uint8_t msocket_timeoutIncrease(msocket_t *self);
+static void msocket_shutdownIoThread(msocket_t *self);
+static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode);
+static void msocket_reset(msocket_t *self);
+
 
 /**************** Private Variable Declarations *******************/
 
 
 /****************** Public Function Definitions *******************/
-int8_t msocket_create(msocket_t *self,uint8_t addressFamily){
+int8_t msocket_create(msocket_t *self, uint8_t addressFamily){
    if( (self != 0) ){
       switch(addressFamily){
       case 0:
@@ -72,22 +84,18 @@ int8_t msocket_create(msocket_t *self,uint8_t addressFamily){
       memset(&self->udpInfo,0,sizeof(msocketAddrInfo_t));
       self->handlerTable = 0;
       self->handlerArg = 0;
-      self->threadRunning = 0; //ioThreadId=UNDEFINED, ioThread=UNDEFINED
-      self->socketMode = 0; //tcpsockfd=UNDEFINED, udpsockfd=UNDEFINED
+      self->threadRunning = 0; //ioThreadId is UNDEFINED, ioThread is UNDEFINED
+      self->socketMode = MSOCKET_MODE_NONE; //tcpsockfd is UNDEFINED, udpsockfd is UNDEFINED
       self->state = MSOCKET_STATE_NONE;
       self->newConnection = 0; //used to differentiate between UDP and TCP on ioTask startup
-#ifdef _WIN32
-      self->tcpsockfd = INVALID_SOCKET;
+      self->tcpsockfd = INVALID_SOCKET; //very unclear if socket is an integer on all linux/unix systems
       self->udpsockfd = INVALID_SOCKET;
+#ifdef _WIN32
       self->ioThread = INVALID_HANDLE_VALUE;
-#else
-      //very unclear if socket is an integer on all linux/unix systems
-      self->tcpsockfd = -1;
-      self->udpsockfd = -1;
 #endif
       msocket_timeoutReset(self);
-      adt_bytearray_create(&self->tcpRxBuf,(uint32_t) MSOCKET_RCV_BUF_GROW_SIZE);
-      adt_bytearray_reserve(&self->tcpRxBuf,MSOCKET_MIN_RCV_BUF_SIZE);
+      adt_bytearray_create(&self->tcpRxBuf, (uint32_t) MSOCKET_RCV_BUF_GROW_SIZE);
+      adt_bytearray_reserve(&self->tcpRxBuf, MSOCKET_MIN_RCV_BUF_SIZE);
       MUTEX_INIT(self->mutex);
       return 0;
    }
@@ -131,54 +139,29 @@ void msocket_vdelete(void *arg)
 }
 
 void msocket_close(msocket_t *self){
-   if(self !=0 ){
+   if (self !=0 ){
       uint8_t threadRunning;
-       MUTEX_LOCK(self->mutex);
-       threadRunning = self->threadRunning;
-       if( (self->state == MSOCKET_STATE_PENDING) || (self->state == MSOCKET_STATE_ESTABLISHED) || (self->state == MSOCKET_STATE_ACCEPTING) ){
-          self->state = MSOCKET_STATE_CLOSING;
-       }
-       MUTEX_UNLOCK(self->mutex);
- #ifdef _WIN32
-       if ( threadRunning != 0){
-          WaitForSingleObject(self->ioThread,1000);
-          CloseHandle(self->ioThread);
-          self->ioThread=INVALID_HANDLE_VALUE;
-       }
-       if(self->tcpsockfd != INVALID_SOCKET){
-          closesocket(self->tcpsockfd);
-          self->tcpsockfd=INVALID_SOCKET;
-       }
- #else
-       if (self->tcpsockfd >= 0){
-          void *status;
-          if(threadRunning){
-             if(pthread_equal(pthread_self(),self->ioThread) == 0){
-                int s = pthread_join(self->ioThread, &status);
-                if (s != 0){
- #if(NS_DEBUG)
-                   printf("ns: pthread_join error %d\n",s);
- #endif
-                }
-                else{
-                   MUTEX_LOCK(self->mutex);
-                   self->threadRunning = 0;
-                   MUTEX_UNLOCK(self->mutex);
-                }
-             }
-             else{
- #if(NS_DEBUG)
-                printf("cannot call netsocket_close on same thread as calling thread\n");
- #endif
-                return;
-             }
-          }
-          MUTEX_LOCK(self->mutex);
-          shutdown(self->tcpsockfd,SHUT_RDWR);
-          MUTEX_UNLOCK(self->mutex);
-       }
- #endif
-    }
+      uint8_t socketMode;
+      for(;;){
+         MUTEX_LOCK(self->mutex);
+         threadRunning = self->threadRunning;
+         socketMode = self->socketMode;
+         if( (self->state == MSOCKET_STATE_PENDING) || (self->state == MSOCKET_STATE_ESTABLISHED) || (self->state == MSOCKET_STATE_ACCEPTING) ){
+            self->state = MSOCKET_STATE_CLOSING;
+         }
+         MUTEX_UNLOCK(self->mutex);
+         if ( (threadRunning == 0) && (socketMode == MSOCKET_MODE_NONE) ){
+            break;
+         }
+         if (threadRunning != 0){
+            msocket_shutdownIoThread(self);
+         }
+         if (socketMode != MSOCKET_MODE_NONE){
+            msocket_closeInternalSocket(self, socketMode);
+         }
+      }
+      msocket_reset(self);
+   }
 }
 
 
@@ -609,7 +592,9 @@ int8_t msocket_send(msocket_t *self,const void *msgData,uint32_t msgLen){
       while(remain>0){
          n = send(self->tcpsockfd,p,remain,0);
          if(n <= 0){
+#if(MSOCKET_DEBUG)
             perror("msocket: send failed\n");
+#endif
             return -1;
          }
          remain -= n;
@@ -794,15 +779,19 @@ static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
       }
       else
       {
+#if(MSOCKET_DEBUG)
          fprintf(stderr, "[MSOCKET] recv error %d\n", lastError);
+#endif
          return -1;
       }
 #else
       if(errno == ECONNRESET){
          len = 0; //change to socket closed event
       }
-      else{         
+      else{
+#if(MSOCKET_DEBUG)
          perror("msocket: recv error");
+#endif
          return -1;
       }
 #endif
@@ -869,4 +858,69 @@ uint8_t msocket_timeoutIncrease(msocket_t *self){
       }
    }
    return 0;
+}
+
+static void msocket_shutdownIoThread(msocket_t *self){
+#ifdef _WIN32
+   DWORD result = WaitForSingleObject(self->ioThread, 1000);
+   if (result == WAIT_OBJECT_0){
+      CloseHandle(self->ioThread);
+      self->ioThread=INVALID_HANDLE_VALUE;
+      MUTEX_LOCK(self->mutex);
+      self->threadRunning = 0;
+      MUTEX_UNLOCK(self->mutex);
+   }
+#else
+   void *status;
+   if(pthread_equal(pthread_self(),self->ioThread) == 0){
+      int s = pthread_join(self->ioThread, &status);
+      if (s == 0){
+         MUTEX_LOCK(self->mutex);
+         self->threadRunning = 0;
+         MUTEX_UNLOCK(self->mutex);
+      }
+# if(MSOCKET_DEBUG)
+      else{
+         printf("[MSOCKET] pthread_join error %d\n", s);
+      }
+# endif
+   }
+# if(MSOCKET_DEBUG)
+   else{
+      printf("[MSOCKET] cannot call msocket_close on same thread as calling thread\n");
+   }
+# endif
+#endif
+}
+
+static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode){
+   if (socketMode & MSOCKET_MODE_TCP){
+#ifdef _WIN32
+      closesocket(self->tcpsockfd);
+#else
+      shutdown(self->tcpsockfd, SHUT_RDWR);
+#endif
+      MUTEX_LOCK(self->mutex);
+      self->socketMode &=(uint8_t) (~MSOCKET_MODE_TCP);
+      self->tcpsockfd = INVALID_SOCKET;
+      MUTEX_UNLOCK(self->mutex);
+   }
+   if (socketMode & MSOCKET_MODE_UDP){
+#ifdef _WIN32
+      closesocket(self->tcpsockfd);
+#else
+      close(self->udpsockfd);
+#endif
+      MUTEX_LOCK(self->mutex);
+      self->socketMode &=(uint8_t) (~MSOCKET_MODE_UDP);
+      self->udpsockfd = INVALID_SOCKET;
+      MUTEX_UNLOCK(self->mutex);
+   }
+}
+
+static void msocket_reset(msocket_t *self){
+   self->state = MSOCKET_STATE_NONE;
+   self->newConnection = 0;
+   msocket_timeoutReset(self);
+   adt_bytearray_clear(&self->tcpRxBuf);
 }
