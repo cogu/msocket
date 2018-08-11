@@ -54,7 +54,7 @@ struct msocket_server_tag;
 typedef struct msocket_handler_t{
    void (*tcp_accept)(void *arg, struct msocket_server_tag *srv,struct msocket_t *msocket);
    void (*udp_msg)(void *arg, const char *addr, uint16_t port, const uint8_t *dataBuf, uint32_t dataLen);
-   void (*tcp_connected)(void *arg,const char *addr, uint16_t port);
+   void (*tcp_connected)(void *arg, const char *addr, uint16_t port);
    void (*tcp_disconnected)(void *arg);
    int8_t (*tcp_data)(void *arg, const uint8_t *dataBuf, uint32_t dataLen, uint32_t *parseLen); //return 0 on success, -1 on failure (this will force the socket to close)
    void (*tcp_inactivity)(uint32_t elapsed);

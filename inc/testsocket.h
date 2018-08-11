@@ -43,6 +43,8 @@ int8_t testsocket_serverSend(testsocket_t *self,const void *msgData,uint32_t msg
 int8_t testsocket_clientSend(testsocket_t *self,const void *msgData,uint32_t msgLen);
 void testsocket_setServerHandler(testsocket_t *self, const msocket_handler_t *handlerTable, void *handlerArg);
 void testsocket_setClientHandler(testsocket_t *self, const msocket_handler_t *handlerTable, void *handlerArg);
-void testSocket_run(testsocket_t *self);
+void testsocket_onConnect(testsocket_t *self);
+void testsocket_onDisconnect(testsocket_t *self);
+void testsocket_run(testsocket_t *self);
 
 #endif //TEST_SOCKET_H

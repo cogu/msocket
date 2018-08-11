@@ -47,7 +47,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="adt/src/adt_u16Map.c|adt/src/adt_str.c|adt/src/adt_stack.c|adt/src/adt_set.c|adt/src/adt_ringbuf.c|adt/src/adt_list.c|adt/src/adt_heap.c|adt/src/adt_hash.c|msocket/src/MSocketWrapper.cpp|msocket/src/MSocketServer.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="msocket/src/testsocket.c|msocket/src/testsocket_spy.c|adt/src/adt_u16Map.c|adt/src/adt_str.c|adt/src/adt_stack.c|adt/src/adt_set.c|adt/src/adt_ringbuf.c|adt/src/adt_list.c|adt/src/adt_heap.c|adt/src/adt_hash.c|msocket/src/MSocketWrapper.cpp|msocket/src/MSocketServer.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -94,7 +94,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="adt/src/adt_u16Map.c|adt/src/adt_str.c|adt/src/adt_stack.c|adt/src/adt_set.c|adt/src/adt_ringbuf.c|adt/src/adt_list.c|adt/src/adt_heap.c|adt/src/adt_hash.c|msocket/src/MSocketWrapper.cpp|msocket/src/MSocketServer.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="msocket/src/testsocket.c|msocket/src/testsocket_spy.c|adt/src/adt_u16Map.c|adt/src/adt_str.c|adt/src/adt_stack.c|adt/src/adt_set.c|adt/src/adt_ringbuf.c|adt/src/adt_list.c|adt/src/adt_heap.c|adt/src/adt_hash.c|msocket/src/MSocketWrapper.cpp|msocket/src/MSocketServer.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

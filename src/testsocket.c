@@ -147,7 +147,37 @@ void testsocket_setClientHandler(testsocket_t *self, const msocket_handler_t *ha
    }
 }
 
-void testSocket_run(testsocket_t *self)
+void testsocket_onConnect(testsocket_t *self)
+{
+   if (self != 0)
+   {
+      if (self->serverHandlerTable.tcp_connected != 0)
+      {
+         self->serverHandlerTable.tcp_connected(self->serverHandlerArg, "testsocket", 0);
+      }
+      if (self->clientHandlerTable.tcp_connected != 0)
+      {
+         self->clientHandlerTable.tcp_connected(self->clientHandlerArg, "testsocket", 0);
+      }
+   }
+}
+
+void testsocket_onDisconnect(testsocket_t *self)
+{
+   if (self != 0)
+   {
+      if (self->serverHandlerTable.tcp_disconnected != 0)
+      {
+         self->serverHandlerTable.tcp_disconnected(self->serverHandlerArg);
+      }
+      if (self->clientHandlerTable.tcp_disconnected != 0)
+      {
+         self->clientHandlerTable.tcp_disconnected(self->clientHandlerArg);
+      }
+   }
+}
+
+void testsocket_run(testsocket_t *self)
 {
    if (self != 0)
    {
