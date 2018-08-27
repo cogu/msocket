@@ -4,7 +4,7 @@
 * \date:    2014-10-01
 * \brief:   event-driven socket library for Linux and Windows
 *
-* Copyright (c) 2014-2016 Conny Gustafsson
+* Copyright (c) 2014-2018 Conny Gustafsson
 *
 ******************************************************************************/
 
@@ -54,6 +54,7 @@ static uint8_t msocket_timeoutIncrease(msocket_t *self);
 static void msocket_shutdownIoThread(msocket_t *self);
 static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode);
 static void msocket_reset(msocket_t *self);
+static void msocket_shutdownPrepare(msocket_t *self);
 
 
 /**************** Private Variable Declarations *******************/
@@ -144,11 +145,9 @@ void msocket_close(msocket_t *self){
       uint8_t socketMode;
       for(;;){
          MUTEX_LOCK(self->mutex);
+         msocket_shutdownPrepare(self);
          threadRunning = self->threadRunning;
          socketMode = self->socketMode;
-         if( (self->state == MSOCKET_STATE_PENDING) || (self->state == MSOCKET_STATE_ESTABLISHED) || (self->state == MSOCKET_STATE_ACCEPTING) ){
-            self->state = MSOCKET_STATE_CLOSING;
-         }
          MUTEX_UNLOCK(self->mutex);
          if ( (threadRunning == 0) && (socketMode == MSOCKET_MODE_NONE) ){
             break;
@@ -797,12 +796,15 @@ static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
 #endif
    }
    if( self != 0 ){
-//      printf("msocket_tcpRxHandler %d\n",len);
       if( len == 0 ){
+         int8_t triggerCallback = 1u;
          MUTEX_LOCK(self->mutex);
+         if (self->state == MSOCKET_STATE_CLOSING) {
+            triggerCallback = 0;
+         }
          self->state = MSOCKET_STATE_CLOSING;
          MUTEX_UNLOCK(self->mutex);
-         if( self->handlerTable->tcp_disconnected ){
+         if( (triggerCallback != 0) && (self->handlerTable->tcp_disconnected != 0) ){
             self->handlerTable->tcp_disconnected(self->handlerArg);
          }
          return -1;
@@ -898,7 +900,7 @@ static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode){
 #ifdef _WIN32
       closesocket(self->tcpsockfd);
 #else
-      shutdown(self->tcpsockfd, SHUT_RDWR);
+      close(self->tcpsockfd);
 #endif
       MUTEX_LOCK(self->mutex);
       self->socketMode &=(uint8_t) (~MSOCKET_MODE_TCP);
@@ -907,7 +909,7 @@ static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode){
    }
    if (socketMode & MSOCKET_MODE_UDP){
 #ifdef _WIN32
-      closesocket(self->tcpsockfd);
+      closesocket(self->udpsockfd);
 #else
       close(self->udpsockfd);
 #endif
@@ -923,4 +925,15 @@ static void msocket_reset(msocket_t *self){
    self->newConnection = 0;
    msocket_timeoutReset(self);
    adt_bytearray_clear(&self->tcpRxBuf);
+}
+
+static void msocket_shutdownPrepare(msocket_t *self){
+    if( (self->state == MSOCKET_STATE_PENDING) || (self->state == MSOCKET_STATE_ESTABLISHED) || (self->state == MSOCKET_STATE_ACCEPTING) ){
+       self->state = MSOCKET_STATE_CLOSING;
+#ifndef _WIN32
+       if (self->socketMode & MSOCKET_MODE_TCP){
+    	   shutdown(self->tcpsockfd, SHUT_RDWR);
+       }
+#endif
+   }
 }
