@@ -19,12 +19,14 @@
 #define INVALID_SOCKET_FD INVALID_SOCKET
 #define IS_INVALID_SOCKET(sockfd) (sockfd == INVALID_SOCKET)
 #define SOCKET_CLOSE(sockfd) closesocket(sockfd)
+#define SOCKET_SHUTDOWN(sockfd) shutdown(sockfd, SD_BOTH);
 #define SOCK_LEN_T int
 #else
 #define SOCKET_T int
 #define INVALID_SOCKET_FD -1
 #define IS_INVALID_SOCKET(sockfd) (sockfd < 0)
-#define SOCKET_CLOSE(sockfd) shutdown(sockfd,SHUT_RDWR)
+#define SOCKET_CLOSE(sockfd) close(sockfd)
+#define SOCKET_SHUTDOWN(sockfd) shutdown(sockfd, SHUT_RDWR);
 #define SOCK_LEN_T socklen_t
 #endif
 
