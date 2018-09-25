@@ -72,7 +72,7 @@ public:
    virtual void close();
    virtual bool connect(const std::string& socketPath, PortNumberT port);
    virtual bool unixConnect(const std::string& socketPath);
-   virtual bool send(BufferDataT* msgData, BufferSizeT msgLen);
+   virtual bool send(const BufferDataT* msgData, BufferSizeT msgLen);
    virtual bool sendto(const std::string& addr, PortNumberT port, const BufferDataT *msgData, BufferSizeT msgLen);
    virtual bool listen(ModeT mode, const PortNumberT port, const std::string& addr);
    #ifndef _WIN32
