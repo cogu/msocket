@@ -101,8 +101,16 @@ testsocket_t * testsocket_spy_server(void)
 
 const uint8_t *testsocket_spy_getReceivedData(uint32_t *dataLen)
 {
-   *dataLen = adt_bytearray_length(&m_dataReceived);
-   return adt_bytearray_data(&m_dataReceived);
+   uint32_t curLen = adt_bytearray_length(&m_dataReceived);
+   if (dataLen != (uint32_t*) 0)
+   {
+      *dataLen = curLen;
+   }
+   if (curLen > 0)
+   {
+      return adt_bytearray_data(&m_dataReceived);
+   }
+   return (const uint8_t*) 0;
 }
 
 void testsocket_spy_clearReceivedData(void)
