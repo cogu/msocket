@@ -134,6 +134,7 @@ void MSocket::onDisconnectedWrapper(void *arg) {
 }
 
 void MSocket::onTcpInactivityWrapper(uint32_t elapsed) {
+   (void)elapsed;
    // Oops no handler
 }
 
