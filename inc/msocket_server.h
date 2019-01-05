@@ -52,6 +52,7 @@ void msocket_server_delete(msocket_server_t *self);
 void msocket_server_sethandler(msocket_server_t *self,const msocket_handler_t *handler, void *handlerArg);
 void msocket_server_start(msocket_server_t *self,const char *udpAddr,uint16_t udpPort,uint16_t tcpPort);
 void msocket_server_unix_start(msocket_server_t *self,const char *socketPath);
+void msocket_server_disable_cleanup(msocket_server_t *self);
 void msocket_server_cleanup_connection(msocket_server_t *self, void *arg);
 
 
