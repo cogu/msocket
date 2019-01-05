@@ -29,10 +29,11 @@
 #endif
 
 
-
+#define CLEANUP_WAIT_TIME 200
 
 
 /**************** Private Function Declarations *******************/
+static void msocket_server_start_threads(msocket_server_t *self);
 static THREAD_PROTO(acceptTask,arg);
 static THREAD_PROTO(cleanupTask,arg);
 /**************** Private Variable Declarations *******************/
@@ -79,29 +80,31 @@ void msocket_server_destroy(msocket_server_t *self){
      pthread_join(self->acceptThread,&result);
 #endif
       }
-      MUTEX_LOCK(self->mutex);
-      self->cleanupStop = 1;
-      MUTEX_UNLOCK(self->mutex);
+      if (self->pDestructor != 0) {
+         MUTEX_LOCK(self->mutex);
+         self->cleanupStop = 1;
+         MUTEX_UNLOCK(self->mutex);
 #ifdef _WIN32
-      WaitForSingleObject( self->cleanupThread, INFINITE );
-      CloseHandle( self->cleanupThread );
+         WaitForSingleObject( self->cleanupThread, INFINITE );
+         CloseHandle( self->cleanupThread );
 #else
-      pthread_join(self->cleanupThread,&result);
+         pthread_join(self->cleanupThread,&result);
 #endif
+      }
       adt_ary_destroy(&self->cleanupItems);
       SEMAPHORE_DESTROY(self->sem);
       MUTEX_DESTROY(self->mutex);
       if(self->udpAddr != 0){
          free(self->udpAddr);
       }
+#ifndef _WIN32
       if(self->socketPath != 0){
-#ifdef _WIN32
-            _unlink(self->socketPath);
-#else
+         if (self->socketPath[0] != '\0') { //files that belong to the abstract namespace (starts with null-byte) does not need to be explicitly deleted
             unlink(self->socketPath);
-#endif
+         }
          free(self->socketPath);
       }
+#endif
    }
 }
 
@@ -134,53 +137,47 @@ void msocket_server_start(msocket_server_t *self,const char *udpAddr,uint16_t ud
       if(udpAddr != 0){
          self->udpAddr = strdup(udpAddr);
       }
-      msocket_sethandler(self->acceptSocket,&self->handlerTable,self->handlerArg);
-      msocket_start_io(self->acceptSocket);
-#ifdef _WIN32
-   THREAD_CREATE(self->acceptThread,acceptTask,(void*) self,self->acceptThreadId);
-   THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self,self->cleanupThreadId);
-#else
-   THREAD_CREATE(self->acceptThread,acceptTask,(void*) self);
-   THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self);
-#endif
+      msocket_server_start_threads(self);
    }
 }
 
-void msocket_server_unix_start(msocket_server_t *self,const char *socketPath)
-{
+void msocket_server_unix_start(msocket_server_t *self,const char *socketPath) {
+#ifndef _WIN32
    if(self != 0){
       self->tcpPort = 0;
       self->udpPort = 0;
       if (socketPath != 0)
       {
+         /* Linux supports an abstract namespace where the path starts with null-byte
+          * Socket files created in this namespace does not show up in the normal file system and will also be deleted automatically when closed.
+          */
          if (*socketPath=='\0')
          {
-            int len=strlen(socketPath+1)+2;
+            //abstract namespace
+            int len=strlen(socketPath+1)+2; //reserve space for 1 null-byte at beginning and another null-byte at the end
             self->socketPath=(char*) malloc(len);
             if (self->socketPath != 0)
             {
-               memcpy(self->socketPath+1,socketPath,len);
+               memcpy(self->socketPath, socketPath, len);
             }
          }
          else
          {
+            //filesystem namespace
             self->socketPath=strdup(socketPath);
-#ifdef _WIN32
-            _unlink(socketPath);
-#else
             unlink(socketPath);
-#endif
          }
       }
-//      msocket_sethandler(self->acceptSocket,&self->handlerTable,self->handlerArg);
-//      msocket_start_io(self->acceptSocket);
-#ifdef _WIN32
-   THREAD_CREATE(self->acceptThread,acceptTask,(void*) self,self->acceptThreadId);
-   THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self,self->cleanupThreadId);
-#else
-   THREAD_CREATE(self->acceptThread,acceptTask,(void*) self);
-   THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self);
+      msocket_server_start_threads(self);
+   }
 #endif
+}
+
+void msocket_server_disable_cleanup(msocket_server_t *self)
+{
+   if ( self != 0)
+   {
+      self->pDestructor = (void (*)(void*)) 0;
    }
 }
 
@@ -195,6 +192,21 @@ void msocket_server_cleanup_connection(msocket_server_t *self, void *arg){
 
 /***************** Private Function Definitions *******************/
 
+static void msocket_server_start_threads(msocket_server_t *self) {
+#ifdef _WIN32
+   THREAD_CREATE(self->acceptThread,acceptTask,(void*) self,self->acceptThreadId);
+#else
+   THREAD_CREATE(self->acceptThread,acceptTask,(void*) self);
+#endif
+   //User can disable cleanup by explicitly calling msocket_server_disable_cleanup() before calling start. User then has to do cleanup manually.
+   if (self->pDestructor != 0) {
+#ifdef _WIN32
+      THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self,self->cleanupThreadId);
+#else
+      THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self);
+#endif
+   }
+}
 
 THREAD_PROTO(acceptTask,arg){
    msocket_server_t *self = (msocket_server_t *) arg;
@@ -236,7 +248,7 @@ THREAD_PROTO(acceptTask,arg){
 #ifdef MSOCKET_DEBUG
             printf("accept wait\n");
 #endif
-            child = msocket_accept(self->acceptSocket,0);
+            child = msocket_accept(self->acceptSocket, 0);
 #ifdef MSOCKET_DEBUG
             printf("accept return\n");
 #endif
@@ -271,7 +283,7 @@ THREAD_PROTO(cleanupTask,arg)
       {
          int8_t rc;
          uint8_t stopThread;
-         SLEEP(200); //sleep 200ms
+         SLEEP(CLEANUP_WAIT_TIME);
          rc = _sem_test(&self->sem);
          if(rc < 0)
          {
