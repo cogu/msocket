@@ -63,10 +63,9 @@ void _sem_ev_post(SEMAPHORE_T *sem){
    SEMAPHORE_POST(*sem);
 #else
    int val=0;
-   int rc = sem_getvalue(sem,&val);
-   if( (rc==0) && (val==0) ){
+   const int rc = sem_getvalue(sem, &val);
+   if( (rc==0) && (val<=0) ){
       sem_post(sem);
-      rc = sem_getvalue(sem,&val);
    }
 #endif
 }

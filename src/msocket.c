@@ -672,9 +672,8 @@ THREAD_PROTO(ioTask,arg){
          activity = select( max_sd + 1 , &readfds , NULL , NULL , &timeout);
          if(activity>0){
             if( (self->socketMode & MSOCKET_MODE_UDP) && (FD_ISSET(self->udpsockfd,&readfds) != 0) ){
-			   SOCK_LEN_T len;
+               SOCK_LEN_T len;
                //UDP activity
-               rc=-1;               
                if(self->addressFamily == AF_INET6){
                    struct sockaddr_in6 sock_addr6;
                    len = (SOCK_LEN_T) sizeof(sock_addr6);
@@ -719,11 +718,11 @@ THREAD_PROTO(ioTask,arg){
                break;
             }
             else if(state == MSOCKET_STATE_ESTABLISHED){
-               uint8_t timeout = 0;
+               uint8_t inactivity_timeout = 0;
                MUTEX_LOCK(self->mutex);
-               timeout=msocket_timeoutIncrease(self);
+               inactivity_timeout = msocket_timeoutIncrease(self);
                MUTEX_UNLOCK(self->mutex);
-               if( (timeout != 0) && (self->handlerTable->tcp_inactivity != 0)){
+               if( (inactivity_timeout != 0) && (self->handlerTable->tcp_inactivity != 0)){
                   self->handlerTable->tcp_inactivity(self->inactivityMs);
                }
             }
