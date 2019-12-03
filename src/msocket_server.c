@@ -29,7 +29,7 @@
 #endif
 
 
-#define CLEANUP_WAIT_TIME 200
+#define CLEANUP_INTERVAL_MS 200
 
 
 /**************** Private Function Declarations *******************/
@@ -71,19 +71,18 @@ void msocket_server_destroy(msocket_server_t *self){
 #endif
 
    if(self != 0){
+      self->cleanupStop = 1;
+
       if(self->acceptSocket != 0){
          msocket_close(self->acceptSocket);
 #ifdef _WIN32
-      WaitForSingleObject( self->acceptThread, INFINITE );
-      CloseHandle( self->acceptThread );
+         WaitForSingleObject( self->acceptThread, INFINITE );
+         CloseHandle( self->acceptThread );
 #else
-     pthread_join(self->acceptThread,&result);
+         pthread_join(self->acceptThread,&result);
 #endif
       }
       if (self->pDestructor != 0) {
-         MUTEX_LOCK(self->mutex);
-         self->cleanupStop = 1;
-         MUTEX_UNLOCK(self->mutex);
 #ifdef _WIN32
          WaitForSingleObject( self->cleanupThread, INFINITE );
          CloseHandle( self->cleanupThread );
@@ -183,6 +182,7 @@ void msocket_server_disable_cleanup(msocket_server_t *self)
 
 void msocket_server_cleanup_connection(msocket_server_t *self, void *arg){
    MUTEX_LOCK(self->mutex);
+   assert(self->cleanupStop == 0);
    adt_ary_push(&self->cleanupItems,arg);
    MUTEX_UNLOCK(self->mutex);
    SEMAPHORE_POST(self->sem);
@@ -281,10 +281,7 @@ THREAD_PROTO(cleanupTask,arg)
       }
       while(1)
       {
-         int8_t rc;
-         uint8_t stopThread;
-         SLEEP(CLEANUP_WAIT_TIME);
-         rc = _sem_test(&self->sem);
+         const int8_t rc = _sem_test(&self->sem);
          if(rc < 0)
          {
             //failure
@@ -304,13 +301,11 @@ THREAD_PROTO(cleanupTask,arg)
          else
          {
             //failed to decrease semaphore, check if time to close
-            MUTEX_LOCK(self->mutex);
-            stopThread = self->cleanupStop;
-            MUTEX_UNLOCK(self->mutex);
-            if(stopThread)
+            if(self->cleanupStop != 0)
             {
                break; //break while-loop
             }
+            SLEEP(CLEANUP_INTERVAL_MS);
          }
       }
    }
