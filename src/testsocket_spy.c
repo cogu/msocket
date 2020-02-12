@@ -73,6 +73,9 @@ void testsocket_spy_destroy(void)
    adt_bytearray_destroy(&m_dataReceived);
 }
 
+/**
+ * Client end of a (test) socket connection. Use the returned value as input argument to a server.
+ */
 testsocket_t * testsocket_spy_client(void)
 {
    testsocket_t *socketObject;
@@ -86,6 +89,9 @@ testsocket_t * testsocket_spy_client(void)
    return socketObject;
 }
 
+/**
+ * Server end of a (test) socket connection. Use the returned value as input argument to a client.
+ */
 testsocket_t * testsocket_spy_server(void)
 {
    testsocket_t *socketObject;
