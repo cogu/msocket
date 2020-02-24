@@ -246,11 +246,11 @@ THREAD_PROTO(acceptTask,arg){
          while(1){
             msocket_t *child;
 #ifdef MSOCKET_DEBUG
-            printf("accept wait\n");
+            printf("[MSOCKET] accept wait\n");
 #endif
             child = msocket_accept(self->acceptSocket, 0);
 #ifdef MSOCKET_DEBUG
-            printf("accept return\n");
+            printf("[MSOCKET] accept return\n");
 #endif
             if( child == 0 ){
                break;

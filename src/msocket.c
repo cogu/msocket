@@ -51,7 +51,7 @@ static int msocket_udpRxHandler(msocket_t *self,uint8_t *recvBuf, int len);
 static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len);
 static void msocket_timeoutReset(msocket_t *self);
 static uint8_t msocket_timeoutIncrease(msocket_t *self);
-static void msocket_shutdownIoThread(msocket_t *self);
+static void msocket_joinIoThread(msocket_t *self);
 static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode);
 static void msocket_reset(msocket_t *self);
 static void msocket_shutdownPrepare(msocket_t *self);
@@ -139,8 +139,26 @@ void msocket_vdelete(void *arg)
    msocket_delete( (msocket_t*) arg);
 }
 
+/**
+ * This function closes the internal socket handle and stops the internal ioThread.
+ * When called from the ioThread itself (during connect/disconnect callouts) it will
+ * have no effect since a thread cannot be joined with itself.
+ */
 void msocket_close(msocket_t *self){
    if (self !=0 ){
+#ifdef _WIN32
+      unsigned int currentThreadId = (unsigned int) GetCurrentThreadId();
+      if (currentThreadId == self->ioThreadId)
+#else
+      if(pthread_equal(pthread_self(),self->ioThread) != 0)
+#endif
+      {
+#if MSOCKET_DEBUG
+         printf("[MSOCKET] Not possible to call msocket_close from ioTask thread\n");
+#endif
+         return;
+      }
+
       for(;;){
          uint8_t threadRunning;
          uint8_t socketMode;
@@ -153,7 +171,7 @@ void msocket_close(msocket_t *self){
             break;
          }
          if (threadRunning != 0){
-            msocket_shutdownIoThread(self);
+            msocket_joinIoThread(self);
          }
          if (socketMode != MSOCKET_MODE_NONE){
             msocket_closeInternalSocket(self, socketMode);
@@ -623,8 +641,11 @@ THREAD_PROTO(ioTask,arg){
       int rc;
       fd_set readfds;
       uint8_t *recvBuf;
-
       struct timeval timeout;
+# if(MSOCKET_DEBUG)
+   printf("[MSOCKET](0x%p)  ioTask starting\n",arg);
+#endif
+
 
       timeout.tv_sec=0;
       recvBuf = (uint8_t*) malloc(MSG_BUF_SIZE);
@@ -730,7 +751,9 @@ THREAD_PROTO(ioTask,arg){
       }
       free(recvBuf);
    }
-//   printf("msocket ioTask exit 0x%p\n",arg);
+# if(MSOCKET_DEBUG)
+   printf("[MSOCKET](0x%p) ioTask exiting\n",arg);
+#endif
    THREAD_RETURN(0);
 }
 
@@ -855,7 +878,7 @@ uint8_t msocket_timeoutIncrease(msocket_t *self){
    return 0;
 }
 
-static void msocket_shutdownIoThread(msocket_t *self){
+static void msocket_joinIoThread(msocket_t *self){
 #ifdef _WIN32
    DWORD result = WaitForSingleObject(self->ioThread, 1000);
    if (result == WAIT_OBJECT_0){
@@ -867,22 +890,16 @@ static void msocket_shutdownIoThread(msocket_t *self){
    }
 #else
    void *status;
-   if(pthread_equal(pthread_self(),self->ioThread) == 0){
-      int s = pthread_join(self->ioThread, &status);
-      if (s == 0){
-         MUTEX_LOCK(self->mutex);
-         self->threadRunning = 0;
-         MUTEX_UNLOCK(self->mutex);
-      }
-# if(MSOCKET_DEBUG)
-      else{
-         printf("[MSOCKET] pthread_join error %d\n", s);
-      }
-# endif
+
+   int s = pthread_join(self->ioThread, &status);
+   if (s == 0){
+      MUTEX_LOCK(self->mutex);
+      self->threadRunning = 0;
+      MUTEX_UNLOCK(self->mutex);
    }
 # if(MSOCKET_DEBUG)
    else{
-      printf("[MSOCKET] cannot call msocket_close on same thread as calling thread\n");
+      printf("[MSOCKET] pthread_join error %d\n", s);
    }
 # endif
 #endif
