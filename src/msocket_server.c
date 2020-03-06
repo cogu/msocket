@@ -71,16 +71,22 @@ void msocket_server_destroy(msocket_server_t *self){
 #endif
 
    if(self != 0){
+      msocket_t *acceptSocket;
+      MUTEX_LOCK(self->mutex);
       self->cleanupStop = 1;
-
-      if(self->acceptSocket != 0){
-         msocket_close(self->acceptSocket);
+      acceptSocket = self->acceptSocket;
+      if(acceptSocket != 0){
+         msocket_close(acceptSocket);
+         MUTEX_UNLOCK(self->mutex);
 #ifdef _WIN32
          WaitForSingleObject( self->acceptThread, INFINITE );
          CloseHandle( self->acceptThread );
 #else
          pthread_join(self->acceptThread,&result);
 #endif
+      }
+      else {
+         MUTEX_UNLOCK(self->mutex);
       }
       if (self->pDestructor != 0) {
 #ifdef _WIN32
@@ -261,7 +267,10 @@ THREAD_PROTO(acceptTask,arg){
                }
             }
          }
+         MUTEX_LOCK(self->mutex);
          msocket_delete(self->acceptSocket);
+         self->acceptSocket = (msocket_t*) 0;
+         MUTEX_UNLOCK(self->mutex);
       }
    }
 #ifdef MSOCKET_DEBUG
