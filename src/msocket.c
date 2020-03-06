@@ -4,7 +4,7 @@
 * \date:    2014-10-01
 * \brief:   event-driven socket library for Linux and Windows
 *
-* Copyright (c) 2014-2018 Conny Gustafsson
+* Copyright (c) 2014-2020 Conny Gustafsson
 *
 ******************************************************************************/
 
@@ -43,6 +43,7 @@
 #define TIMEOUT_MS 50 //ms for select-function to wait for activity
 #define TIMEOUT_US (TIMEOUT_MS*1000)
 #define TIMEOUT_CALL_INTERVAL_MS 1000 //interval for timeout callback handler
+#define MAX_CLOSE_ATTEMPTS 20
 
 /**************** Private Function Declarations *******************/
 static THREAD_PROTO(ioTask,arg);
@@ -106,8 +107,8 @@ int8_t msocket_create(msocket_t *self, uint8_t addressFamily){
 void msocket_destroy(msocket_t *self){
 	if( self != 0 ){
       msocket_close(self);
-      MUTEX_DESTROY(self->mutex);
       adt_bytearray_destroy(&self->tcpRxBuf);
+      MUTEX_DESTROY(self->mutex);
       if(self->handlerTable != 0){
          free(self->handlerTable);
       }
@@ -146,20 +147,8 @@ void msocket_vdelete(void *arg)
  */
 void msocket_close(msocket_t *self){
    if (self !=0 ){
-#ifdef _WIN32
-      unsigned int currentThreadId = (unsigned int) GetCurrentThreadId();
-      if (currentThreadId == self->ioThreadId)
-#else
-      if(pthread_equal(pthread_self(),self->ioThread) != 0)
-#endif
-      {
-#if MSOCKET_DEBUG
-         printf("[MSOCKET] Not possible to call msocket_close from ioTask thread\n");
-#endif
-         return;
-      }
-
-      for(;;){
+      uint8_t attempts;
+      for(attempts=0; attempts < MAX_CLOSE_ATTEMPTS; attempts++){
          uint8_t threadRunning;
          uint8_t socketMode;
          MUTEX_LOCK(self->mutex);
@@ -168,16 +157,36 @@ void msocket_close(msocket_t *self){
          socketMode = self->socketMode;
          MUTEX_UNLOCK(self->mutex);
          if ( (threadRunning == 0) && (socketMode == MSOCKET_MODE_NONE) ){
-            break;
+            break; //already closed
          }
-         if (threadRunning != 0){
+         if (threadRunning != 0) {
+#ifdef _WIN32
+            unsigned int currentThreadId = (unsigned int) GetCurrentThreadId();
+            if (currentThreadId == self->ioThreadId)
+#else
+            if(pthread_equal(pthread_self(),self->ioThread) != 0)
+#endif
+            {
+#if MSOCKET_DEBUG
+                  printf("[MSOCKET] Not allowed to call msocket_close from msocket ioTask thread\n");
+#endif
+               return;
+            }
             msocket_joinIoThread(self);
          }
          if (socketMode != MSOCKET_MODE_NONE){
+            MUTEX_LOCK(self->mutex);
             msocket_closeInternalSocket(self, socketMode);
+            msocket_reset(self);
+            MUTEX_UNLOCK(self->mutex);
+         }
+         else
+         {
+            MUTEX_LOCK(self->mutex);
+            msocket_reset(self);
+            MUTEX_UNLOCK(self->mutex);
          }
       }
-      msocket_reset(self);
    }
 }
 
@@ -908,17 +917,13 @@ static void msocket_joinIoThread(msocket_t *self){
 static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode){
    if (socketMode & MSOCKET_MODE_TCP){
       SOCKET_CLOSE(self->tcpsockfd);
-      MUTEX_LOCK(self->mutex);
       self->socketMode &=(uint8_t) (~MSOCKET_MODE_TCP);
       self->tcpsockfd = INVALID_SOCKET;
-      MUTEX_UNLOCK(self->mutex);
    }
    if (socketMode & MSOCKET_MODE_UDP){
       SOCKET_CLOSE(self->udpsockfd);
-      MUTEX_LOCK(self->mutex);
       self->socketMode &=(uint8_t) (~MSOCKET_MODE_UDP);
       self->udpsockfd = INVALID_SOCKET;
-      MUTEX_UNLOCK(self->mutex);
    }
 }
 
