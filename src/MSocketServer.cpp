@@ -39,7 +39,7 @@ void MSocketServer::cleanupConnection(MSocketServer::CleanupCallback callback) {
    msocket_server_cleanup_connection(m_msocket_server, (void*)this);
 }
 
-void MSocketServer::onTcpAcceptWrapper(void *arg, struct msocket_server_t *srv, struct msocket_t *msocket) {
+void MSocketServer::onTcpAcceptWrapper(void *arg, struct msocket_server_tag *srv, struct msocket_t *msocket) {
 
    if(arg == NULL) {
       return;
