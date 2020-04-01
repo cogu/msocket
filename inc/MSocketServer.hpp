@@ -36,7 +36,7 @@ public:
 
 protected:
 
-   static void onTcpAcceptWrapper(void *arg, struct msocket_server_t *srv, struct msocket_t *msocket);
+   static void onTcpAcceptWrapper(void *arg, struct msocket_server_tag *srv, struct msocket_t *msocket);
    static void onCleanupConnection(void *arg);
 
 	msocket_server_t* m_msocket_server;

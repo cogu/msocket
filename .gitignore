@@ -1,7 +1,7 @@
 #build and project files
 **/Debug/
 **/Release
-**/build/
+**/UnitTest/
 **.vs/
 *.VC.db
 *.VC.opendb
