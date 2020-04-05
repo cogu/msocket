@@ -71,13 +71,15 @@ public:
    virtual void setHandler(HandlerT& handler);
    virtual void close();
    virtual bool connect(const std::string& socketPath, PortNumberT port);
+#ifndef _WIN32
    virtual bool unixConnect(const std::string& socketPath);
+#endif
    virtual bool send(const BufferDataT* msgData, BufferSizeT msgLen);
    virtual bool sendto(const std::string& addr, PortNumberT port, const BufferDataT *msgData, BufferSizeT msgLen);
    virtual bool listen(ModeT mode, const PortNumberT port, const std::string& addr);
-   #ifndef _WIN32
-   virtual bool unixListen(const std::string& socketPath);
-   #endif
+#ifndef _WIN32
+    virtual bool unixListen(const std::string& socketPath);
+#endif
    MSocketPtr accept(MSocketPtr childPtr);
    virtual void startIO();
    virtual StateT state();
