@@ -1,14 +1,13 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(msocket LANGUAGES C VERSION 1.0.0)
+project(msocket LANGUAGES C VERSION 0.9.0)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    include(../adt/cmake/BuildTypes.cmake)
-    include(../adt/cmake/LeakCheck.cmake)
+    include(../adt/cmake/UnitTest.cmake)
     add_subdirectory(../adt ${CMAKE_CURRENT_BINARY_DIR}/adt)
 endif()
 
@@ -54,22 +53,24 @@ target_include_directories(msocket_server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 
 ### Library msocket_testsocket
 
-set (MSOCKET_TESTSOCKET_HEADER_LIST
-    inc/testsocket_spy.h
-    inc/testsocket.h
-)
+if (UNIT_TEST)
+    set (MSOCKET_TESTSOCKET_HEADER_LIST
+        inc/testsocket_spy.h
+        inc/testsocket.h
+    )
 
-set (MSOCKET_TESTSOCKET_SOURCE_LIST
-    src/testsocket_spy.c
-    src/testsocket.c
-)
+    set (MSOCKET_TESTSOCKET_SOURCE_LIST
+        src/testsocket_spy.c
+        src/testsocket.c
+    )
 
-add_library(msocket_testsocket ${MSOCKET_TESTSOCKET_SOURCE_LIST} ${MSOCKET_TESTSOCKET_HEADER_LIST})
-target_link_libraries(msocket_testsocket PRIVATE adt msocket)
-target_include_directories(msocket_testsocket PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+    add_library(msocket_testsocket ${MSOCKET_TESTSOCKET_SOURCE_LIST} ${MSOCKET_TESTSOCKET_HEADER_LIST})
+    target_link_libraries(msocket_testsocket PRIVATE adt msocket)
+    target_include_directories(msocket_testsocket PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+endif()
 ###
 
-project(msocket_wrapper LANGUAGES CXX VERSION 1.0.0)
+project(msocket_wrapper LANGUAGES CXX VERSION 0.9.0)
 
 ### Library cpp_msocket
 set (MSOCKET_WRAPPER_HEADER_LIST
@@ -82,7 +83,6 @@ set (MSOCKET_WRAPPER_SOURCE_LIST
 
 add_library(cpp_msocket ${MSOCKET_WRAPPER_SOURCE_LIST} ${MSOCKET_WRAPPER_HEADER_LIST})
 target_link_libraries(cpp_msocket PRIVATE adt msocket)
-#set_target_properties(cpp_msocket PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(cpp_msocket PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 ###
 
@@ -97,7 +97,6 @@ set (MSOCKET_SERVER_WRAPPER_SOURCE_LIST
 
 add_library(cpp_msocket_server ${MSOCKET_SERVER_WRAPPER_SOURCE_LIST} ${MSOCKET_SERVER_WRAPPER_HEADER_LIST})
 target_link_libraries(cpp_msocket_server PRIVATE adt cpp_msocket)
-#set_target_properties(cpp_msocket_server PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(cpp_msocket_server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 ###
 
