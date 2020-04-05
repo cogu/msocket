@@ -47,10 +47,12 @@ bool MSocket::connect(const std::string& socketPath, PortNumberT port) {
    return m_error == 0;
 }
 
+#ifndef _WIN32
 bool MSocket::unixConnect(const std::string& socketPath) {
    m_error = msocket_unix_connect(m_msocket, socketPath.c_str());
    return m_error == 0;
 }
+#endif
 
 bool MSocket::send(const BufferDataT* msgData, BufferSizeT msgLen) {
    m_error = msocket_send(m_msocket, msgData, msgLen);

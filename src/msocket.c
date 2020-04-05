@@ -479,12 +479,12 @@ int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port){
 #else
          strcpy(self->tcpInfo.addr, addr);
 #endif
-         if(self->addressFamily == AF_INET6){            
+         if(self->addressFamily == AF_INET6){
             saddr6.sin6_family = AF_INET6;
             saddr6.sin6_port = htons((uint16_t) self->tcpInfo.port);
             sockfd = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP);
          }
-         else{            
+         else{
             saddr.sin_family = AF_INET;
             saddr.sin_port = htons((uint16_t) self->tcpInfo.port);
             sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -666,11 +666,7 @@ THREAD_PROTO(ioTask,arg){
       MUTEX_UNLOCK(self->mutex);
 
       while(1){
-#ifdef _WIN32
-         unsigned int max_sd;
-#else
-         int max_sd;
-#endif
+         int max_sd = 0;
          int activity;
          uint8_t newConnection;
          MUTEX_LOCK(self->mutex);
@@ -684,18 +680,21 @@ THREAD_PROTO(ioTask,arg){
                self->handlerTable->tcp_connected(self->handlerArg,&self->tcpInfo.addr[0],self->tcpInfo.port);
             }
          }
-         max_sd=0;
          FD_ZERO(&readfds);
          if(self->socketMode & MSOCKET_MODE_UDP){
             FD_SET(self->udpsockfd, &readfds);
             if(self->udpsockfd > max_sd){
+#ifndef _WIN32 //max_sd param is not used in WinSock2
                max_sd=self->udpsockfd;
+#endif
             }
          }
          else if(self->socketMode & MSOCKET_MODE_TCP){ //the thread listening on UDP uses a different thread for TCP accept, use else-if here to prevent deadlock
             FD_SET(self->tcpsockfd, &readfds);
             if(self->tcpsockfd > max_sd){
+#ifndef _WIN32 //max_sd param is not used in WinSock2
                max_sd=self->tcpsockfd;
+#endif
             }
          }
          timeout.tv_usec=TIMEOUT_US;
@@ -796,7 +795,7 @@ static int msocket_udpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
 
 static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
    if( len < 0 ){
-#ifdef _WIN32      
+#ifdef _WIN32
       int lastError = WSAGetLastError();
       if (lastError == WSAECONNRESET)
       {
