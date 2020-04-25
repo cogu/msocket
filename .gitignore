@@ -2,6 +2,7 @@
 **/Debug/
 **/Release
 **/VisualStudio/
+/build/
 *.VC.db
 *.VC.opendb
 *.exe.stackdump
