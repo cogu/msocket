@@ -59,7 +59,7 @@ void msocket_server_create(msocket_server_t *self, uint8_t addressFamily, void (
       {
          self->pDestructor = msocket_vdelete;
       }
-      adt_ary_create(&self->cleanupItems,0);
+      msocket_ary_create(&self->cleanupItems,0);
       MUTEX_INIT(self->mutex);
       SEMAPHORE_CREATE(self->sem);
    }
@@ -96,7 +96,7 @@ void msocket_server_destroy(msocket_server_t *self){
          pthread_join(self->cleanupThread,&result);
 #endif
       }
-      adt_ary_destroy(&self->cleanupItems);
+      msocket_ary_destroy(&self->cleanupItems);
       SEMAPHORE_DESTROY(self->sem);
       MUTEX_DESTROY(self->mutex);
       if(self->udpAddr != 0){
@@ -175,6 +175,9 @@ void msocket_server_unix_start(msocket_server_t *self,const char *socketPath) {
       }
       msocket_server_start_threads(self);
    }
+#else
+   (void)self;
+   (void)socketPath;
 #endif
 }
 
@@ -189,7 +192,7 @@ void msocket_server_disable_cleanup(msocket_server_t *self)
 void msocket_server_cleanup_connection(msocket_server_t *self, void *arg){
    MUTEX_LOCK(self->mutex);
    assert(self->cleanupStop == 0);
-   adt_ary_push(&self->cleanupItems,arg);
+   msocket_ary_push(&self->cleanupItems,arg);
    MUTEX_UNLOCK(self->mutex);
    SEMAPHORE_POST(self->sem);
 }
@@ -207,9 +210,9 @@ static void msocket_server_start_threads(msocket_server_t *self) {
    //User can disable cleanup by explicitly calling msocket_server_disable_cleanup() before calling start. User then has to do cleanup manually.
    if (self->pDestructor != 0) {
 #ifdef _WIN32
-      THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self,self->cleanupThreadId);
+      THREAD_CREATE(self->cleanupThread, cleanupTask,(void*) self,self->cleanupThreadId);
 #else
-      THREAD_CREATE(self->cleanupThread,cleanupTask,(void*) self);
+      THREAD_CREATE(self->cleanupThread, cleanupTask,(void*) self);
 #endif
    }
 }
@@ -275,7 +278,7 @@ THREAD_PROTO(acceptTask,arg){
    }
 #ifdef MSOCKET_DEBUG
    printf("acceptThread exit\n");
-#endif   
+#endif
    THREAD_RETURN(0);
 }
 
@@ -302,8 +305,8 @@ THREAD_PROTO(cleanupTask,arg)
             //successfully decreased semaphore, this means that there must be something in the array
             void *item;
             MUTEX_LOCK(self->mutex);
-            assert(adt_ary_length(&self->cleanupItems)>0);
-            item = adt_ary_shift(&self->cleanupItems);
+            assert(msocket_ary_length(&self->cleanupItems)>0);
+            item = msocket_ary_shift(&self->cleanupItems);
             self->pDestructor(item);
             MUTEX_UNLOCK(self->mutex);
          }

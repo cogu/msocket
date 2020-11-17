@@ -10,15 +10,16 @@
 ******************************************************************************/
 #ifndef MSOCKET_SERVER_H
 #define MSOCKET_SERVER_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "msocket.h"
-#include "adt_ary.h"
 #include "osmacro.h"
 #ifndef _WIN32
 #include <semaphore.h>
 #include <pthread.h>
 #endif
-
-
 
 typedef struct msocket_server_tag{
    msocket_t *acceptSocket;
@@ -26,7 +27,7 @@ typedef struct msocket_server_tag{
    uint16_t udpPort;
    char *udpAddr;
    char *socketPath;
-   adt_ary_t cleanupItems;
+   msocket_ary_t cleanupItems;
    THREAD_T acceptThread;
    THREAD_T cleanupThread;
    SEMAPHORE_T sem;
@@ -47,13 +48,19 @@ typedef struct msocket_server_tag{
 /***************** Public Function Declarations *******************/
 void msocket_server_create(msocket_server_t *self, uint8_t addressFamily, void (*pDestructor)(void*)); //for addressFamily: use AF_INET or AF_INET6
 void msocket_server_destroy(msocket_server_t *self);
-msocket_server_t *msocket_server_new(uint8_t addressFamily,void (*pDestructor)(void*));
+msocket_server_t *msocket_server_new(uint8_t addressFamily, void (*pDestructor)(void*));
 void msocket_server_delete(msocket_server_t *self);
-void msocket_server_sethandler(msocket_server_t *self,const msocket_handler_t *handler, void *handlerArg);
-void msocket_server_start(msocket_server_t *self,const char *udpAddr,uint16_t udpPort,uint16_t tcpPort);
-void msocket_server_unix_start(msocket_server_t *self,const char *socketPath);
+void msocket_server_set_handler(msocket_server_t *self, const msocket_handler_t *handler, void *handlerArg);
+void msocket_server_start(msocket_server_t *self, const char *udpAddr, uint16_t udpPort,uint16_t tcpPort);
+void msocket_server_unix_start(msocket_server_t *self, const char *socketPath);
 void msocket_server_disable_cleanup(msocket_server_t *self);
 void msocket_server_cleanup_connection(msocket_server_t *self, void *arg);
 
+//backwards compatibility
+#define msocket_server_sethandler(s, t, a) msocket_server_set_handler(s, t, a)
 
-#endif //APX_NETSOCKET_SERVER_H
+#ifdef __cplusplus
+}
+#endif
+
+#endif //MSOCKET_SERVER_H
