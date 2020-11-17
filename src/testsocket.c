@@ -42,8 +42,8 @@ void testsocket_create(testsocket_t *self)
 {
    if (self != 0)
    {
-      adt_bytearray_create(&self->pendingClient, 0);
-      adt_bytearray_create(&self->pendingServer, 0);
+      msocket_bytearray_create(&self->pendingClient, 0);
+      msocket_bytearray_create(&self->pendingServer, 0);
       memset(&self->clientHandlerTable, 0, sizeof(msocket_handler_t));
       memset(&self->serverHandlerTable, 0, sizeof(msocket_handler_t));
    }
@@ -53,8 +53,8 @@ void testsocket_destroy(testsocket_t *self)
 {
    if (self != 0)
    {
-      adt_bytearray_destroy(&self->pendingClient);
-      adt_bytearray_destroy(&self->pendingServer);
+      msocket_bytearray_destroy(&self->pendingClient);
+      msocket_bytearray_destroy(&self->pendingServer);
    }
 }
 
@@ -94,7 +94,7 @@ int8_t testsocket_serverSend(testsocket_t *self,const void *msgData,uint32_t msg
 {
    if (self != 0)
    {
-      return adt_bytearray_append(&self->pendingClient, msgData, msgLen);
+      return msocket_bytearray_append(&self->pendingClient, msgData, msgLen);
    }
    return -1;
 }
@@ -106,7 +106,7 @@ int8_t testsocket_clientSend(testsocket_t *self,const void *msgData,uint32_t msg
 {
    if (self != 0)
    {
-      return adt_bytearray_append(&self->pendingServer, msgData, msgLen);
+      return msocket_bytearray_append(&self->pendingServer, msgData, msgLen);
    }
    return -1;
 }
@@ -183,18 +183,18 @@ void testsocket_run(testsocket_t *self)
    {
       uint32_t serverPending;
       uint32_t clientPending;
-      serverPending = (uint32_t) adt_bytearray_length(&self->pendingServer);
-      clientPending = (uint32_t) adt_bytearray_length(&self->pendingClient);
+      serverPending = (uint32_t) msocket_bytearray_length(&self->pendingServer);
+      clientPending = (uint32_t) msocket_bytearray_length(&self->pendingClient);
       if ( (serverPending > 0) && (self->serverHandlerTable.tcp_data != 0) )
       {
          uint32_t parseLen=0;
          const uint8_t *data;
          int8_t result;
-         data = (const uint8_t*) adt_bytearray_data(&self->pendingServer);
+         data = (const uint8_t*) msocket_bytearray_data(&self->pendingServer);
          result = self->serverHandlerTable.tcp_data(self->serverHandlerArg, data, serverPending, &parseLen);
          if (result == 0)
          {
-            adt_bytearray_trimLeft(&self->pendingServer, data + parseLen);
+            msocket_bytearray_trimLeft(&self->pendingServer, data + parseLen);
          }
       }
       if ( (clientPending > 0) && (self->clientHandlerTable.tcp_data != 0) )
@@ -202,11 +202,11 @@ void testsocket_run(testsocket_t *self)
          uint32_t parseLen=0;
          const uint8_t *data;
          int8_t result;
-         data = (const uint8_t*) adt_bytearray_data(&self->pendingClient);
+         data = (const uint8_t*) msocket_bytearray_data(&self->pendingClient);
          result = self->clientHandlerTable.tcp_data(self->clientHandlerArg, data, clientPending, &parseLen);
          if (result == 0)
          {
-            adt_bytearray_trimLeft(&self->pendingClient, data + parseLen);
+            msocket_bytearray_trimLeft(&self->pendingClient, data + parseLen);
          }
       }
    }

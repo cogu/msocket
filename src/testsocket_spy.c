@@ -2,9 +2,10 @@
 * \file      testsocketspy.c
 * \author    Conny Gustafsson
 * \date      2018-08-09
-* \brief     Description
+* \brief     A testsocket factory
 *
-* Copyright (c) 2018 Conny Gustafsson
+* Copyright (c) 2018-2020 Conny Gustafsson
+*
 * Permission is hereby granted, free of charge, to any person obtaining a copy of
 * this software and associated documentation files (the "Software"), to deal in
 * the Software without restriction, including without limitation the rights to
@@ -28,7 +29,7 @@
 //////////////////////////////////////////////////////////////////////////////
 #include <string.h>
 #include "testsocket_spy.h"
-#include "adt_bytearray.h"
+#include "msocket_adt.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // PRIVATE CONSTANTS AND DATA TYPES
@@ -52,7 +53,7 @@ static uint32_t m_clientBytesReceivedTotal;
 static int32_t m_serverConnectedCount;
 static int32_t m_serverDisconnectedCount;
 static uint32_t m_serverBytesReceivedTotal;
-static adt_bytearray_t m_dataReceived;
+static msocket_bytearray_t m_dataReceived;
 
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC FUNCTIONS
@@ -65,18 +66,18 @@ void testsocket_spy_create(void)
    m_serverBytesReceivedTotal = 0;
    m_serverConnectedCount = 0;
    m_serverDisconnectedCount = 0;
-   adt_bytearray_create(&m_dataReceived, ADT_BYTE_ARRAY_DEFAULT_GROW_SIZE);
+   msocket_bytearray_create(&m_dataReceived, MSOCKET_BYTEARRAY_DEFAULT_GROW_SIZE);
 }
 
 void testsocket_spy_destroy(void)
 {
-   adt_bytearray_destroy(&m_dataReceived);
+   msocket_bytearray_destroy(&m_dataReceived);
 }
 
 /**
  * Client end of a (test) socket connection. Use the returned value as input argument to a server.
  */
-testsocket_t * testsocket_spy_client(void)
+testsocket_t* testsocket_spy_client(void)
 {
    testsocket_t *socketObject;
    msocket_handler_t handlerTable;
@@ -107,21 +108,21 @@ testsocket_t * testsocket_spy_server(void)
 
 const uint8_t *testsocket_spy_getReceivedData(uint32_t *dataLen)
 {
-   uint32_t curLen = adt_bytearray_length(&m_dataReceived);
+   uint32_t curLen = msocket_bytearray_length(&m_dataReceived);
    if (dataLen != (uint32_t*) 0)
    {
       *dataLen = curLen;
    }
    if (curLen > 0)
    {
-      return adt_bytearray_data(&m_dataReceived);
+      return msocket_bytearray_data(&m_dataReceived);
    }
    return (const uint8_t*) 0;
 }
 
 void testsocket_spy_clearReceivedData(void)
 {
-   adt_bytearray_clear(&m_dataReceived);
+   msocket_bytearray_clear(&m_dataReceived);
 }
 
 int32_t testsocket_spy_getClientConnectedCount(void)
@@ -160,36 +161,46 @@ uint32_t testsocket_spy_getServerBytesReceived(void)
 //////////////////////////////////////////////////////////////////////////////
 static void client_socket_connected(void *arg,const char *addr, uint16_t port)
 {
+   (void)arg;
+   (void)addr;
+   (void)port;
    m_clientConnectedCount++;
 }
 
 static void client_socket_disconnected(void *arg)
 {
+   (void)arg;
    m_clientDisconnectedCount++;
 }
 
 static int8_t client_socket_data(void *arg, const uint8_t *dataBuf, uint32_t dataLen, uint32_t *parseLen)
 {
+   (void)arg;
    *parseLen = dataLen;
    m_clientBytesReceivedTotal+=dataLen;
-   adt_bytearray_append(&m_dataReceived, dataBuf, dataLen);
+   msocket_bytearray_append(&m_dataReceived, dataBuf, dataLen);
    return 0;
 }
 
 static void server_socket_connected(void *arg,const char *addr, uint16_t port)
 {
+   (void)arg;
+   (void)addr;
+   (void)port;
    m_serverConnectedCount++;
 }
 
 static void server_socket_disconnected(void *arg)
 {
+   (void)arg;
    m_serverDisconnectedCount++;
 }
 
 static int8_t server_socket_data(void *arg, const uint8_t *dataBuf, uint32_t dataLen, uint32_t *parseLen)
 {
+   (void)arg;
    *parseLen = dataLen;
    m_serverBytesReceivedTotal+=dataLen;
-   adt_bytearray_append(&m_dataReceived, dataBuf, dataLen);
+   msocket_bytearray_append(&m_dataReceived, dataBuf, dataLen);
    return 0;
 }

@@ -2,10 +2,10 @@
 * \file      msocket_server.c
 * \author    Conny Gustafsson
 * \date      2014-12-18
-* \brief     msocket (TCP/UDP) server helper
+* \brief     msocket server
 * \details   https://github.com/cogu/msocket
 *
-* Copyright (c) 2014-2016 Conny Gustafsson
+* Copyright (c) 2014-2020 Conny Gustafsson
 *
 ******************************************************************************/
 #include "msocket_server.h"
