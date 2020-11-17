@@ -56,7 +56,16 @@ static void msocket_joinIoThread(msocket_t *self);
 static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode);
 static void msocket_reset(msocket_t *self);
 static void msocket_shutdownPrepare(msocket_t *self);
-
+static int msocket_accept_inet(msocket_t* self, msocket_t* child);
+static int msocket_accept_inet6(msocket_t* self, msocket_t* child);
+#ifndef _WIN32
+static int msocket_accept_local(msocket_t* self, msocket_t* child);
+#endif
+static int msocket_connect_inet(msocket_t* self, const char* address, uint16_t port);
+static int msocket_connect_inet6(msocket_t* self, const char* address, uint16_t port);
+#ifndef _WIN32
+static int msocket_connect_unix_internal(msocket_t* self, const char* socketPath);
+#endif
 
 /**************** Private Variable Declarations *******************/
 
@@ -96,8 +105,8 @@ int8_t msocket_create(msocket_t *self, uint8_t addressFamily){
       self->ioThread = INVALID_HANDLE_VALUE;
 #endif
       msocket_timeoutReset(self);
-      adt_bytearray_create(&self->tcpRxBuf, (uint32_t) MSOCKET_RCV_BUF_GROW_SIZE);
-      adt_bytearray_reserve(&self->tcpRxBuf, MSOCKET_MIN_RCV_BUF_SIZE);
+      msocket_bytearray_create(&self->tcpRxBuf, (uint32_t) MSOCKET_RCV_BUF_GROW_SIZE);
+      msocket_bytearray_reserve(&self->tcpRxBuf, MSOCKET_MIN_RCV_BUF_SIZE);
       MUTEX_INIT(self->mutex);
       return 0;
    }
@@ -107,7 +116,7 @@ int8_t msocket_create(msocket_t *self, uint8_t addressFamily){
 void msocket_destroy(msocket_t *self){
 	if( self != 0 ){
       msocket_close(self);
-      adt_bytearray_destroy(&self->tcpRxBuf);
+      msocket_bytearray_destroy(&self->tcpRxBuf);
       MUTEX_DESTROY(self->mutex);
       if(self->handlerTable != 0){
          free(self->handlerTable);
@@ -207,7 +216,7 @@ int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const c
         if(self->addressFamily == AF_INET6){
            memset(&saddr6, 0,sizeof(saddr6));
            saddr6.sin6_family = AF_INET6;
-           saddr6.sin6_addr = in6addr_any; //addr parameter not supported (TCP)
+           saddr6.sin6_addr = in6addr_any; //addr parameter not yet supported
            saddr6.sin6_port = htons(port);
         }
         else{
@@ -252,7 +261,7 @@ int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const c
 
            if (rc < 0){
               SOCKET_CLOSE(sockudp);
-              return rc;
+              return (int8_t) rc;
            }
            self->udpsockfd = sockudp;
            self->socketMode |= mode;
@@ -284,12 +293,12 @@ int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const c
            }
            if (rc < 0){
               SOCKET_CLOSE(socktcp);
-              return rc;
+              return (int8_t) rc;
            }
            rc = listen(socktcp,5);
            if(rc<0){
               SOCKET_CLOSE(socktcp);
-              return rc;
+              return (int8_t) rc;
            }
            self->tcpsockfd = socktcp;
            self->state = MSOCKET_STATE_LISTENING;
@@ -349,81 +358,62 @@ int8_t msocket_unix_listen(msocket_t *self, const char *socket_path)
 }
 #endif
 
-msocket_t *msocket_accept(msocket_t *self,msocket_t *child){
-   if((self != 0) && (self->state == MSOCKET_STATE_LISTENING) ){
-      struct sockaddr_in cli_addr;
-      struct sockaddr_in6 cli_addr6;
-      int sockoptval;
-      socklen_t sockoptlen = sizeof(sockoptval);
-      SOCKET_T sockfd;
-      uint8_t placementNew = 0;
-#ifdef _WIN32
-      int cli_len;
-#else
-      socklen_t cli_len;
-#endif
-      if(child == 0){
+msocket_t *msocket_accept(msocket_t *self, msocket_t *child){
+   if ( (self != 0) && (self->state == MSOCKET_STATE_LISTENING) ) {
+
+      uint8_t placementNew = 0u;
+      int result = 0u;
+
+      if(child == 0) {
          child = msocket_new(self->addressFamily);
       }
-      else{
+      else {
          placementNew = 1;
          msocket_create(child,self->addressFamily);
       }
-
-      if(self->addressFamily == AF_INET6){
-         cli_len = sizeof(cli_addr6);
-         memset(&cli_addr6,0,cli_len);
-      }
-      else{
-         cli_len = sizeof(cli_addr);
-         memset(&cli_addr,0,cli_len);
-      }
-
       MUTEX_LOCK(self->mutex);
       self->state = MSOCKET_STATE_ACCEPTING;
       MUTEX_UNLOCK(self->mutex);
-      if(self->addressFamily == AF_INET6){
-         sockfd=accept(self->tcpsockfd,(struct sockaddr *) &cli_addr6, &cli_len); //blocking call (close tcpsockfd from another thread to unblock)
-      }
-      else if (self->addressFamily == AF_INET){
-         sockfd=accept(self->tcpsockfd,(struct sockaddr *) &cli_addr, &cli_len); //blocking call (close tcpsockfd from another thread to unblock)
-      }
+
+      switch (self->addressFamily) {
+      case AF_INET:
+         result = msocket_accept_inet(self, child);
+         break;
+      case AF_INET6:
+         result = msocket_accept_inet6(self, child);
+         break;
 #ifndef _WIN32
-      else if (self->addressFamily == AF_LOCAL){
-         sockfd=accept(self->tcpsockfd, NULL, NULL);
-      }
+      case AF_LOCAL:
+         result = msocket_accept_local(self, child);
+         break;
+      default:
+         result = -1;
 #endif
-      else
-      {
-         assert(0);
       }
+
       MUTEX_LOCK(self->mutex);
       self->state = MSOCKET_STATE_LISTENING;
       MUTEX_UNLOCK(self->mutex);
-      if(IS_INVALID_SOCKET(sockfd)){
-         if(placementNew == 0){
+
+      if (result < 0) {
+         if (placementNew == 0) {
             msocket_delete(child);
          }
-         else{
+         else {
             msocket_destroy(child);
          }
-         return (msocket_t *) 0;
+         return (msocket_t*)0;
       }
+
+      if ( (child->addressFamily == AF_INET) || (child->addressFamily == AF_INET6) ) {
+         int sockoptval = 1;
+         socklen_t sockoptlen = sizeof(sockoptval);
+         setsockopt(child->tcpsockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&sockoptval, sockoptlen);
+      }
+
       MUTEX_LOCK(child->mutex);
-      if(self->addressFamily == AF_INET6){
-         child->tcpInfo.port=ntohs(cli_addr6.sin6_port);
-         inet_ntop(AF_INET, &(cli_addr6.sin6_addr), child->tcpInfo.addr, MSOCKET_ADDRSTRLEN);
-      }
-      else{
-         child->tcpInfo.port=ntohs(cli_addr.sin_port);
-         inet_ntop(AF_INET, &(cli_addr.sin_addr), child->tcpInfo.addr, MSOCKET_ADDRSTRLEN);
-      }
-      /*set socket options */
-      sockoptval = 1;
-      setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&sockoptval, sockoptlen);
       child->state = MSOCKET_STATE_ESTABLISHED;
-      child->tcpsockfd = sockfd;
-      child->socketMode = MSOCKET_MODE_TCP; //child socket is always TCP
+      child->socketMode = MSOCKET_MODE_TCP;
       child->newConnection = 1;
       MUTEX_UNLOCK(child->mutex);
       return child;
@@ -431,7 +421,7 @@ msocket_t *msocket_accept(msocket_t *self,msocket_t *child){
    return (msocket_t *) 0;
 }
 
-void msocket_sethandler(msocket_t *self, const msocket_handler_t *handlerTable, void *handlerArg){
+void msocket_set_handler(msocket_t *self, const msocket_handler_t *handlerTable, void *handlerArg){
    if(self != 0){
       if(self->handlerTable != 0){
          free(self->handlerTable);
@@ -445,7 +435,12 @@ void msocket_sethandler(msocket_t *self, const msocket_handler_t *handlerTable, 
 }
 
 int8_t msocket_start_io(msocket_t *self){
-   if(self != 0){
+   if(self != 0) {
+      if (self->handlerTable == 0) {
+         //Cannot start I/O thread without first setting up handler table
+         errno = EFAULT;
+         return -1;
+      }
       return (int8_t) msocket_startIoThread(self);
    }
    errno=EINVAL;
@@ -454,124 +449,76 @@ int8_t msocket_start_io(msocket_t *self){
 
 
 
-int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port){
-   if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) == 0) && (self->handlerTable != 0) ){
-      int rc;
-      int sockoptval;
+int8_t msocket_connect(msocket_t *self, const char *addr, uint16_t port){
+   if( (self != 0) && (addr != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) == 0) ) {
+      int sockoptval = 1;
       socklen_t sockoptlen = sizeof(sockoptval);
-
-      struct sockaddr_in saddr;
-      struct sockaddr_in6 saddr6;
-      if(self->addressFamily == AF_INET6) {
-         memset(&saddr6, 0, sizeof(saddr6));
-         rc = inet_pton(AF_INET6, addr, &(saddr6.sin6_addr));
-      }
-      else{
-         memset(&saddr, 0, sizeof(saddr));
-         rc = inet_pton(AF_INET, addr, &(saddr.sin_addr));
-      }
-
-      if(rc != 0){
-         SOCKET_T sockfd;
-         self->tcpInfo.port = port;
-#ifdef _WIN32
-         strcpy_s(self->tcpInfo.addr, MSOCKET_ADDRSTRLEN, addr);
-#else
-         strcpy(self->tcpInfo.addr, addr);
-#endif
-         if(self->addressFamily == AF_INET6){
-            saddr6.sin6_family = AF_INET6;
-            saddr6.sin6_port = htons((uint16_t) self->tcpInfo.port);
-            sockfd = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP);
-         }
-         else{
-            saddr.sin_family = AF_INET;
-            saddr.sin_port = htons((uint16_t) self->tcpInfo.port);
-            sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-         }
-         if(IS_INVALID_SOCKET(sockfd)){
-            return -1;
-         }
-         if(self->addressFamily == AF_INET6){
-            rc=connect(sockfd,(struct sockaddr*) &saddr6,sizeof(saddr6));
-         }
-         else{
-            rc=connect(sockfd,(struct sockaddr*) &saddr,sizeof(saddr));
-         }
-         if (rc < 0){
-            SOCKET_CLOSE(sockfd);
-            return rc;
-         }
-         /*set socket options */
-         sockoptval = 1;
-         setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&sockoptval, sockoptlen);
-         MUTEX_LOCK(self->mutex);
-         self->tcpsockfd = sockfd;
-         self->socketMode |= MSOCKET_MODE_TCP;
-         self->state = MSOCKET_STATE_ESTABLISHED;
-         self->newConnection = 1;
-         MUTEX_UNLOCK(self->mutex);
-         rc = msocket_startIoThread(self);
-         if(rc != 0){
-            return rc;
-         }
-         return 0;
-      }
-      //inet_pton failed to parse addr argument, set errno to EINVAL and return error
-   }
-   errno = EINVAL;
-   return -1;
-}
-
-#ifndef _WIN32
-int8_t msocket_unix_connect(msocket_t *self,const char *socketPath)
-{
-   if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) == 0) && (self->handlerTable != 0) ){
-      int rc;
-      SOCKET_T sockfd;
-      struct sockaddr_un saddr;
-
-      memset(&saddr, 0,sizeof(saddr));
-      saddr.sun_family = AF_LOCAL;
-      if (*socketPath == '\0') {
-        *saddr.sun_path = '\0';
-        strncpy(saddr.sun_path+1, socketPath+1, sizeof(saddr.sun_path)-2);
-      } else {
-        strncpy(saddr.sun_path, socketPath, sizeof(saddr.sun_path)-1);
-      }
-
-      sockfd = socket(PF_LOCAL, SOCK_STREAM, 0);
-      if(IS_INVALID_SOCKET(sockfd)){
+      int result;
+      if (self->handlerTable == 0) {
+         errno = EFAULT;
          return -1;
       }
-      rc=connect(sockfd,(struct sockaddr*) &saddr,sizeof(saddr));
-      if (rc < 0){
-         SOCKET_CLOSE(sockfd);
-         return rc;
+      result = (self->addressFamily == AF_INET6) ? msocket_connect_inet6(self, addr, port) : msocket_connect_inet(self, addr, port);
+      if (result < 0) {
+         return -1;
       }
-      MUTEX_LOCK(self->mutex);
-      self->tcpsockfd = sockfd;
+      setsockopt(self->tcpsockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&sockoptval, sockoptlen);
       self->socketMode |= MSOCKET_MODE_TCP;
       self->state = MSOCKET_STATE_ESTABLISHED;
       self->newConnection = 1;
-      MUTEX_UNLOCK(self->mutex);
-      rc = msocket_startIoThread(self);
-      if(rc != 0){
-         return rc;
+      result = msocket_startIoThread(self);
+      if (result < 0) {
+         SOCKET_CLOSE(self->tcpsockfd);
+         self->state = MSOCKET_STATE_CLOSED;
+         return -1;
       }
       return 0;
-
-      //inet_pton failed to parse addr argument, set errno to EINVAL and return error
    }
    errno = EINVAL;
    return -1;
 }
-#endif
+
+
+int8_t msocket_unix_connect(msocket_t *self, const char *socketPath)
+{
+   if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_TCP) == 0) ){
+      int result;
+      if (self->handlerTable == 0) {
+         errno = EFAULT;
+         return -1;
+      }
+#ifndef _WIN32
+      result = msocket_connect_unix_internal(self, socketPath);
+      if (result < 0) {
+         //errno alredy set by system call
+         return -1;
+      }
+
+      self->socketMode |= MSOCKET_MODE_TCP; //Treat connection the same way as if it was set to TCP
+      self->state = MSOCKET_STATE_ESTABLISHED;
+      self->newConnection = 1;
+      result = msocket_startIoThread(self);
+      if (result < 0) {
+         SOCKET_CLOSE(self->tcpsockfd);
+         self->state = MSOCKET_STATE_CLOSED;
+         return -1;
+      }
+      return 0;
+#else
+      (void)socketPath;
+      errno = EAFNOSUPPORT; //UNIX domain socket not supported in Windows
+      result = -1;
+#endif // !_WIN32
+   }
+   errno = EINVAL;
+   return -1;
+}
+
 
 /**
  * send UDP message
  */
-int8_t msocket_sendto(msocket_t *self,const char *addr,uint16_t port,const void *msgData,uint32_t msgLen){
+int8_t msocket_send_to(msocket_t *self, const char *addr,uint16_t port,const void *msgData,uint32_t msgLen){
    if( (self != 0) && ( (self->socketMode & MSOCKET_MODE_UDP) != 0)){
       struct sockaddr_in saddr;
       struct sockaddr_in6 saddr6;
@@ -611,7 +558,7 @@ int8_t msocket_send(msocket_t *self,const void *msgData,uint32_t msgLen){
       const uint8_t *p = (const uint8_t*) msgData;
       uint32_t remain = msgLen;
       while(remain>0){
-         int n = send(self->tcpsockfd,p,remain,0);
+         int n = send(self->tcpsockfd, (const char*) p, remain,0);
          if(n <= 0){
 #if(MSOCKET_DEBUG)
             perror("msocket: send failed\n");
@@ -651,35 +598,33 @@ THREAD_PROTO(ioTask,arg){
       fd_set readfds;
       uint8_t *recvBuf;
       struct timeval timeout;
+      uint8_t newConnection;
 # if(MSOCKET_DEBUG)
    printf("[MSOCKET](0x%p)  ioTask starting\n",arg);
 #endif
-
 
       timeout.tv_sec=0;
       recvBuf = (uint8_t*) malloc(MSG_BUF_SIZE);
       if(recvBuf == 0){
          THREAD_RETURN(1);
       }
+
       //wait for parent thread to release lock before executing this thread
       MUTEX_LOCK(self->mutex);
+      newConnection = self->newConnection;
+      self->newConnection = 0;
       MUTEX_UNLOCK(self->mutex);
+
+      if (newConnection != 0) {
+         if (self->handlerTable->tcp_connected != 0) {
+            self->handlerTable->tcp_connected(self->handlerArg, &self->tcpInfo.addr[0], self->tcpInfo.port);
+         }
+      }
 
       while(1){
          int max_sd = 0;
          int activity;
-         uint8_t newConnection;
-         MUTEX_LOCK(self->mutex);
-         newConnection = self->newConnection;
-         MUTEX_UNLOCK(self->mutex);
-         if( newConnection != 0){
-            MUTEX_LOCK(self->mutex);
-            self->newConnection = 0;
-            MUTEX_UNLOCK(self->mutex);
-            if(self->handlerTable->tcp_connected != 0 ){
-               self->handlerTable->tcp_connected(self->handlerArg,&self->tcpInfo.addr[0],self->tcpInfo.port);
-            }
-         }
+
          FD_ZERO(&readfds);
          if(self->socketMode & MSOCKET_MODE_UDP){
             FD_SET(self->udpsockfd, &readfds);
@@ -724,14 +669,14 @@ THREAD_PROTO(ioTask,arg){
                    }
                }
                if(rc>=0){
-                   rc = msocket_udpRxHandler(self,recvBuf,rc);
+                   rc = msocket_udpRxHandler(self, recvBuf, rc);
                    if(rc < 0){
                       break;
                    }
                }
             }
             if( (self->socketMode & MSOCKET_MODE_TCP) && (FD_ISSET(self->tcpsockfd,&readfds) != 0) ){
-               rc=recv(self->tcpsockfd,(uint8_t*) &recvBuf[0],MSG_BUF_SIZE,0);
+               rc=recv(self->tcpsockfd, (char*) &recvBuf[0],MSG_BUF_SIZE,0);
                rc = msocket_tcpRxHandler(self,recvBuf,rc);
                if(rc < 0){
                   break;
@@ -835,7 +780,7 @@ static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
          return -1;
       }
       else if(self->handlerTable->tcp_data != 0){
-         if(adt_bytearray_append(&self->tcpRxBuf,recvBuf,(uint32_t) len) != 0){
+         if(msocket_bytearray_append(&self->tcpRxBuf,recvBuf,(uint32_t) len) != 0){
             return -1;
          }
          while(1){
@@ -860,7 +805,7 @@ static int msocket_tcpRxHandler(msocket_t *self,uint8_t *recvBuf, int len){
             }
             else{
                assert(parseLen<=u32Len);
-               adt_bytearray_trimLeft(&self->tcpRxBuf,pBegin+parseLen);
+               msocket_bytearray_trimLeft(&self->tcpRxBuf,pBegin+parseLen);
             }
          }
       }
@@ -928,9 +873,10 @@ static void msocket_closeInternalSocket(msocket_t *self, uint8_t socketMode){
 
 static void msocket_reset(msocket_t *self){
    self->state = MSOCKET_STATE_NONE;
-   self->newConnection = 0;
+   self->newConnection = 0u;
+   self->socketMode = 0u;
    msocket_timeoutReset(self);
-   adt_bytearray_clear(&self->tcpRxBuf);
+   msocket_bytearray_clear(&self->tcpRxBuf);
 }
 
 static void msocket_shutdownPrepare(msocket_t *self){
@@ -941,3 +887,159 @@ static void msocket_shutdownPrepare(msocket_t *self){
        }
    }
 }
+
+#ifndef _WIN32
+static int msocket_accept_local(msocket_t* self, msocket_t* child) {
+   SOCKET_T sockfd = accept(self->tcpsockfd, NULL, NULL);
+   if (IS_INVALID_SOCKET(sockfd)) {
+      return -1;
+   }
+   child->tcpsockfd = sockfd;
+   return 0;
+}
+#endif
+
+static int msocket_accept_inet(msocket_t* self, msocket_t* child) {
+   struct sockaddr_in cli_addr;
+   SOCKET_T sockfd;
+#ifdef _WIN32
+   int cli_len;
+#else
+   socklen_t cli_len;
+#endif
+
+   cli_len = sizeof(cli_addr);
+   memset(&cli_addr, 0, cli_len);
+   sockfd = accept(self->tcpsockfd, (struct sockaddr*)&cli_addr, &cli_len); //blocking call (close tcpsockfd from another thread to unblock)
+   if (IS_INVALID_SOCKET(sockfd)) {
+      return -1;
+   }
+   if (inet_ntop(AF_INET, &(cli_addr.sin_addr), child->tcpInfo.addr, MSOCKET_ADDRSTRLEN) == NULL) {
+      SOCKET_CLOSE(sockfd);
+      return -1;
+   }
+   child->tcpInfo.port = ntohs(cli_addr.sin_port);
+   child->tcpsockfd = sockfd;
+   return 0;
+}
+
+static int msocket_accept_inet6(msocket_t* self, msocket_t* child) {
+   struct sockaddr_in6 cli_addr6;
+   SOCKET_T sockfd;
+#ifdef _WIN32
+   int cli_len;
+#else
+   socklen_t cli_len;
+#endif
+
+   cli_len = sizeof(cli_addr6);
+   memset(&cli_addr6, 0, cli_len);
+   sockfd = accept(self->tcpsockfd, (struct sockaddr*) &cli_addr6, &cli_len);
+   if (IS_INVALID_SOCKET(sockfd)) {
+      return -1;
+   }
+   if (inet_ntop(AF_INET, &(cli_addr6.sin6_addr), child->tcpInfo.addr, MSOCKET_ADDRSTRLEN) == NULL) {
+      SOCKET_CLOSE(sockfd);
+      return -1;
+   }
+   child->tcpInfo.port = ntohs(cli_addr6.sin6_port);
+   child->tcpsockfd = sockfd;
+   return 0;
+}
+
+
+static int msocket_connect_inet(msocket_t* self, const char* address, uint16_t port) {
+   struct sockaddr_in saddr;
+   int result;
+   SOCKET_T sockfd;
+
+   memset(&saddr, 0, sizeof(saddr));
+   result = inet_pton(AF_INET, address, &(saddr.sin_addr));
+   if (result <= 0) {
+      //inet_pton retuns 1 on success, -1 on unsupported address family and 0 when string wasn't successfully parsed.
+      return -1;
+   }
+
+#ifdef _WIN32
+   strcpy_s(self->tcpInfo.addr, MSOCKET_ADDRSTRLEN, address);
+#else
+   strcpy(self->tcpInfo.addr, address);
+#endif
+   saddr.sin_family = AF_INET;
+   saddr.sin_port = htons(port);
+   sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+   if (IS_INVALID_SOCKET(sockfd)) {
+      return -1;
+   }
+   result = connect(sockfd, (struct sockaddr*)&saddr, sizeof(saddr));
+   if (result < 0) {
+      SOCKET_CLOSE(sockfd);
+      return -1;
+   }
+   self->tcpInfo.port = port;
+   self->tcpsockfd = sockfd;
+   return 0;
+}
+
+static int msocket_connect_inet6(msocket_t* self, const char* address, uint16_t port)
+{
+   struct sockaddr_in6 saddr6;
+   int result;
+   SOCKET_T sockfd;
+
+   memset(&saddr6, 0, sizeof(saddr6));
+   result = inet_pton(AF_INET6, address, &(saddr6.sin6_addr));
+   if (result <= 0) {
+      //inet_pton retuns 1 on success, -1 on unsupported address family and 0 when string wasn't successfully parsed.
+      return -1;
+   }
+
+   self->tcpInfo.port = port;
+#ifdef _WIN32
+   strcpy_s(self->tcpInfo.addr, MSOCKET_ADDRSTRLEN, address);
+#else
+   strcpy(self->tcpInfo.addr, address);
+#endif
+   saddr6.sin6_family = AF_INET6;
+   saddr6.sin6_port = htons((uint16_t)self->tcpInfo.port);
+   sockfd = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP);
+
+   if (IS_INVALID_SOCKET(sockfd)) {
+      return -1;
+   }
+   result = connect(sockfd, (struct sockaddr*)&saddr6, sizeof(saddr6));
+   if (result < 0) {
+      SOCKET_CLOSE(sockfd);
+      return -1;
+   }
+   return 0;
+}
+
+#ifndef _WIN32
+static int msocket_connect_unix_internal(msocket_t* self, const char* socketPath) {
+   SOCKET_T sockfd;
+   int result;
+   struct sockaddr_un saddr;
+
+   memset(&saddr, 0, sizeof(saddr));
+   saddr.sun_family = AF_LOCAL;
+   if (*socketPath == '\0') {
+      *saddr.sun_path = '\0';
+      strncpy(saddr.sun_path + 1, socketPath + 1, sizeof(saddr.sun_path) - 2);
+   }
+   else {
+      strncpy(saddr.sun_path, socketPath, sizeof(saddr.sun_path) - 1);
+   }
+
+   sockfd = socket(PF_LOCAL, SOCK_STREAM, 0);
+   if (IS_INVALID_SOCKET(sockfd)) {
+      return -1;
+   }
+   result = connect(sockfd, (struct sockaddr*)&saddr, sizeof(saddr));
+   if (result < 0) {
+      SOCKET_CLOSE(sockfd);
+      return result;
+   }
+}
+#endif

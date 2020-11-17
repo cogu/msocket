@@ -4,12 +4,16 @@
 * \date:    2014-10-01
 * \brief:   event-driven socket library for Linux and Windows
 *
-* Copyright (c) 2014-2016 Conny Gustafsson
+* Copyright (c) 2014-2020 Conny Gustafsson
 *
 ******************************************************************************/
 
 #ifndef MSOCKET_H
 #define MSOCKET_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /********************************* Includes **********************************/
 #include <stdint.h>
@@ -26,7 +30,7 @@
 #include <arpa/inet.h>
 #endif
 #include "osmacro.h"
-#include "adt_bytearray.h"
+#include "msocket_adt.h"
 
 /**************************** Constants and Types ****************************/
 
@@ -50,6 +54,15 @@
 struct msocket_t;
 struct msocket_server_tag;
 
+/********************** About Address Family ***************************
+* Supported families:
+*
+*  - AF_INET: TCP connection over IPv4
+*  - AF_INET6: TCP connection over IPv6
+*  - AF_LOCAL: UNIX domain socket (also known as local socket)
+*
+* Above defines are located in system header files (implicitly included).
+************************************************************************/
 
 typedef struct msocket_handler_t{
    void (*tcp_accept)(void *arg, struct msocket_server_tag *srv,struct msocket_t *msocket);
@@ -63,7 +76,7 @@ typedef struct msocket_handler_t{
 typedef struct msocketAddrInfo_t{
    uint16_t port;
    char addr[MSOCKET_ADDRSTRLEN];
-}msocketAddrInfo_t;
+} msocketAddrInfo_t;
 
 typedef struct msocket_t{
    SOCKET_T tcpsockfd;
@@ -75,7 +88,7 @@ typedef struct msocket_t{
 #endif
    msocketAddrInfo_t tcpInfo;
    msocketAddrInfo_t udpInfo;
-   adt_bytearray_t tcpRxBuf;
+   msocket_bytearray_t tcpRxBuf;
    msocket_handler_t *handlerTable;
    void *handlerArg;
    uint8_t state; //TCP socket state
@@ -93,21 +106,26 @@ msocket_t *msocket_new(uint8_t addressFamily);
 void msocket_delete(msocket_t *self);
 void msocket_vdelete(void *arg);
 void msocket_close(msocket_t *self);
-int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const char *addr);
+int8_t msocket_listen(msocket_t *self, uint8_t mode, const uint16_t port, const char *addr);
 #ifndef _WIN32
 int8_t msocket_unix_listen(msocket_t *self, const char *socket_path);
 #endif
-msocket_t *msocket_accept(msocket_t *self,msocket_t *child);
-void msocket_sethandler(msocket_t *self, const msocket_handler_t *handlerTable, void *handlerArg);
+msocket_t *msocket_accept(msocket_t *self, msocket_t *child);
+void msocket_set_handler(msocket_t *self, const msocket_handler_t *handlerTable, void *handlerArg);
 int8_t msocket_start_io(msocket_t *self);
 
-int8_t msocket_connect(msocket_t *self,const char *addr,uint16_t port);
-#ifndef _WIN32
-int8_t msocket_unix_connect(msocket_t *self,const char *socketPath);
-#endif
-int8_t msocket_sendto(msocket_t *self,const char *addr,uint16_t port,const void *msgData,uint32_t msgLen);
-int8_t msocket_send(msocket_t *self,const void *msgData,uint32_t msgLen);
+int8_t msocket_connect(msocket_t *self, const char *addr, uint16_t port);
+int8_t msocket_unix_connect(msocket_t *self, const char *socketPath);
+int8_t msocket_send_to(msocket_t *self, const char *addr, uint16_t port, const void *msgData, uint32_t msgLen);
+int8_t msocket_send(msocket_t *self, const void *msgData, uint32_t msgLen);
 int8_t msocket_state(msocket_t *self);
 
+//backwards compatibility
+#define msocket_sethandler(s, t, a) msocket_set_handler(s, t, a)
+#define msocket_sendto(s, a, p, d, l) msocket_send_to(s, a, p, d, l)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //MSOCKET_H
