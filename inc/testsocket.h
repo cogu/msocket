@@ -4,16 +4,19 @@
 * \date:    2017-08-29
 * \brief:   A drop-in replacement of msocket that can be used for unit testing purposes
 *
-* Copyright (c) 2017 Conny Gustafsson
+* Copyright (c) 2017-2020 Conny Gustafsson
 *
 ******************************************************************************/
 
 #ifndef TEST_SOCKET_H
 #define TEST_SOCKET_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 // INCLUDES
 //////////////////////////////////////////////////////////////////////////////
-#include "adt_bytearray.h"
 #include "msocket.h"
 
 
@@ -23,8 +26,8 @@
 //////////////////////////////////////////////////////////////////////////////
 typedef struct testsocket_tag
 {
-   adt_bytearray_t pendingClient;
-   adt_bytearray_t pendingServer;
+   msocket_bytearray_t pendingClient;
+   msocket_bytearray_t pendingServer;
    msocket_handler_t serverHandlerTable;
    msocket_handler_t clientHandlerTable;
    void *serverHandlerArg;
@@ -46,5 +49,9 @@ void testsocket_setClientHandler(testsocket_t *self, const msocket_handler_t *ha
 void testsocket_onConnect(testsocket_t *self);
 void testsocket_onDisconnect(testsocket_t *self);
 void testsocket_run(testsocket_t *self);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //TEST_SOCKET_H
