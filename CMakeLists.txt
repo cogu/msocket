@@ -1,15 +1,12 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(msocket LANGUAGES C VERSION 0.9.0)
+project(msocket LANGUAGES C VERSION 0.10.0)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    include(../adt/cmake/UnitTest.cmake)
-    add_subdirectory(../adt ${CMAKE_CURRENT_BINARY_DIR}/adt)
-endif()
+option(UNIT_TEST "Unit Test Build" OFF)
 
 ### Library msocket
 
@@ -63,33 +60,18 @@ if (UNIT_TEST)
 endif()
 ###
 
-project(msocket_wrapper LANGUAGES CXX VERSION 0.9.0)
+project(msocket_wrapper LANGUAGES CXX VERSION 0.10.0)
 
 ### Library cpp_msocket
-set (MSOCKET_WRAPPER_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/inc/MSocketWrapper.hpp
+set (MSOCKET_ADAPTER_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/inc/msocket_adapter.h
 )
 
-set (MSOCKET_WRAPPER_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/MSocketWrapper.cpp
+set (MSOCKET_ADAPTER_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/msocket_adapter.cpp
 )
-
-add_library(cpp_msocket ${MSOCKET_WRAPPER_HEADERS} ${MSOCKET_WRAPPER_SOURCES})
-target_link_libraries(cpp_msocket PRIVATE adt msocket)
-target_include_directories(cpp_msocket PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
-###
-
-### Library cpp_msocket_server
-set (MSOCKET_SERVER_WRAPPER_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/inc/MSocketServer.hpp
-)
-
-set (MSOCKET_SERVER_WRAPPER_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/MSocketServer.cpp
-)
-
-add_library(cpp_msocket_server ${MSOCKET_SERVER_WRAPPER_HEADERS} ${MSOCKET_SERVER_WRAPPER_SOURCES})
-target_link_libraries(cpp_msocket_server PRIVATE adt cpp_msocket)
-target_include_directories(cpp_msocket_server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+add_library(msocket_adapter ${MSOCKET_ADAPTER_HEADERS} ${MSOCKET_ADAPTER_SOURCES})
+target_link_libraries(msocket_adapter PRIVATE msocket msocket_server)
+target_include_directories(msocket_adapter PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 ###
 
