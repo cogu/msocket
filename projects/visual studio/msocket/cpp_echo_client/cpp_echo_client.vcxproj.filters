@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="msocket">
+      <UniqueIdentifier>{b9c875ad-21e2-4dc7-9079-09266009214f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="msocket\inc">
+      <UniqueIdentifier>{50127a84-daa2-49fc-874b-004446e0b423}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="msocket\src">
+      <UniqueIdentifier>{1919f473-1657-4895-a8fb-54b417d509ff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="application">
+      <UniqueIdentifier>{1aafb30a-584a-41ad-a06a-e7debe231698}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\..\inc\msocket.h">
+      <Filter>msocket\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\inc\msocket_adapter.h">
+      <Filter>msocket\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\inc\msocket_adt.h">
+      <Filter>msocket\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\inc\osmacro.h">
+      <Filter>msocket\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\inc\osutil.h">
+      <Filter>msocket\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\examples\echo_cpp\client_connection.h">
+      <Filter>application</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\inc\msocket_server.h">
+      <Filter>msocket\inc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\..\src\msocket.c">
+      <Filter>msocket\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\src\msocket_adapter.cpp">
+      <Filter>msocket\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\src\msocket_adt.c">
+      <Filter>msocket\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\src\osutil.c">
+      <Filter>msocket\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\examples\echo_cpp\client_connection.cpp">
+      <Filter>application</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\examples\echo_cpp\echo_client.cpp">
+      <Filter>application</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\src\msocket_server.c">
+      <Filter>msocket\src</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

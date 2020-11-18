@@ -9,7 +9,6 @@
 ******************************************************************************/
 
 #pragma once
-#include <functional>
 #include <cstdint>
 #include <cstddef>
 #include <string>

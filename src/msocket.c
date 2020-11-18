@@ -628,19 +628,19 @@ THREAD_PROTO(ioTask,arg){
          FD_ZERO(&readfds);
          if(self->socketMode & MSOCKET_MODE_UDP){
             FD_SET(self->udpsockfd, &readfds);
-            if(self->udpsockfd > max_sd){
 #ifndef _WIN32 //max_sd param is not used in WinSock2
+            if(self->udpsockfd > max_sd){
                max_sd=self->udpsockfd;
-#endif
             }
+#endif
          }
          else if(self->socketMode & MSOCKET_MODE_TCP){ //the thread listening on UDP uses a different thread for TCP accept, use else-if here to prevent deadlock
             FD_SET(self->tcpsockfd, &readfds);
-            if(self->tcpsockfd > max_sd){
 #ifndef _WIN32 //max_sd param is not used in WinSock2
+            if(self->tcpsockfd > max_sd){
                max_sd=self->tcpsockfd;
-#endif
             }
+#endif
          }
          timeout.tv_usec=TIMEOUT_US;
          activity = select( max_sd + 1 , &readfds , NULL , NULL , &timeout);

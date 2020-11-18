@@ -1,12 +1,8 @@
-#build and project files
+#build files
 **/Debug/
 **/Release
-**/VisualStudio/
-/build/
+**/build/
+**.vs/
 *.VC.db
 *.VC.opendb
-*.exe.stackdump
-language.settings.xml
-
-#sphinx-doc files
-/doc/_build/
+*.vcxproj.user

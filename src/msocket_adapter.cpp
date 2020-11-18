@@ -82,7 +82,6 @@ namespace msocket
    }
 }
 
-
 static void msocket_adapter_tcp_accept(void* arg, struct msocket_server_tag* server, struct msocket_t* accepted_socket)
 {
    auto handler = reinterpret_cast<msocket::Handler*>(arg);
