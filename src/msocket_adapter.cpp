@@ -21,13 +21,13 @@ extern "C"
 
 namespace msocket
 {
-   void Handler::tcp_accept(msocket_server_t* server, msocket_t* accepted_socket)
+   void Handler::socket_accepted(msocket_server_t* server, msocket_t* accepted_socket)
    {
       (void)server;
       (void)accepted_socket;
    }
 
-   void Handler::udp_msg_received(const std::string& address, std::uint16_t port, const std::uint8_t* data, std::size_t data_size)
+   void Handler::udp_message_received(const std::string& address, std::uint16_t port, const std::uint8_t* data, std::size_t data_size)
    {
       (void)address;
       (void)port;
@@ -53,6 +53,35 @@ namespace msocket
       (void)parse_len;
       return -1;
    }
+#ifdef UNIT_TEST
+   void set_client_handler(testsocket_t* msocket, Handler* handler)
+   {
+      if ((msocket != nullptr) && (handler != nullptr))
+      {
+         msocket_handler_t handler_struct;
+         std::memset(&handler_struct, 0, sizeof(handler_struct));
+         handler_struct.tcp_connected = msocket_adapter_tcp_connected;
+         handler_struct.tcp_disconnected = msocket_adapter_tcp_disconnected;
+         handler_struct.tcp_data = msocket_adapter_tcp_data;
+         testsocket_setClientHandler(msocket, &handler_struct, reinterpret_cast<void*>(handler));
+      }
+   }
+
+   void set_server_handler(testsocket_t* msocket, Handler* handler)
+   {
+      if ((msocket != nullptr) && (handler != nullptr))
+      {
+         msocket_handler_t handler_struct;
+         std::memset(&handler_struct, 0, sizeof(handler_struct));
+         handler_struct.tcp_connected = msocket_adapter_tcp_connected;
+         handler_struct.tcp_disconnected = msocket_adapter_tcp_disconnected;
+         handler_struct.tcp_data = msocket_adapter_tcp_data;
+         handler_struct.udp_msg = msocket_adapter_udp_msg;
+         testsocket_setServerHandler(msocket, &handler_struct, reinterpret_cast<void*>(handler));
+      }
+   }
+
+#endif
 
    void set_handler(msocket_t* msocket, Handler* handler)
    {
@@ -63,7 +92,6 @@ namespace msocket
          handler_struct.tcp_connected = msocket_adapter_tcp_connected;
          handler_struct.tcp_disconnected = msocket_adapter_tcp_disconnected;
          handler_struct.tcp_data = msocket_adapter_tcp_data;
-         handler_struct.udp_msg = msocket_adapter_udp_msg; //TODO: Check if this line is actually needed
          msocket_set_handler(msocket, &handler_struct, reinterpret_cast<void*>(handler));
       }
    }
@@ -74,7 +102,6 @@ namespace msocket
       {
          msocket_handler_t handler_struct;
          std::memset(&handler_struct, 0, sizeof(handler_struct));
-         //The only callbacks that makes sense in a server are socket accept and new datagram messages
          handler_struct.tcp_accept = msocket_adapter_tcp_accept;
          handler_struct.udp_msg = msocket_adapter_udp_msg;
          msocket_server_set_handler(server, &handler_struct, reinterpret_cast<void*>(handler));
@@ -87,7 +114,7 @@ static void msocket_adapter_tcp_accept(void* arg, struct msocket_server_tag* ser
    auto handler = reinterpret_cast<msocket::Handler*>(arg);
    if (handler != nullptr)
    {
-      handler->tcp_accept(server, accepted_socket);
+      handler->socket_accepted(server, accepted_socket);
    }
 }
 
@@ -98,7 +125,7 @@ static void msocket_adapter_udp_msg(void* arg, const char* addr, uint16_t port, 
    {
       std::string address{ addr };
       std::size_t size = static_cast<std::size_t>(dataLen);
-      handler->udp_msg_received(address, port, dataBuf, size);
+      handler->udp_message_received(address, port, dataBuf, size);
    }
 }
 

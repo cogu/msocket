@@ -4,7 +4,7 @@
 * \date      2018-08-09
 * \brief     Description
 *
-* Copyright (c) 2018 Conny Gustafsson
+* Copyright (c) 2018-2020 Conny Gustafsson
 * Permission is hereby granted, free of charge, to any person obtaining a copy of
 * this software and associated documentation files (the "Software"), to deal in
 * the Software without restriction, including without limitation the rights to
@@ -25,6 +25,10 @@
 ******************************************************************************/
 #ifndef TEST_SOCKET_SPY_H
 #define TEST_SOCKET_SPY_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 //////////////////////////////////////////////////////////////////////////////
 // INCLUDES
@@ -53,6 +57,11 @@ int32_t testsocket_spy_getServerConnectedCount(void);
 int32_t testsocket_spy_getServerDisconnectCount(void);
 uint32_t testsocket_spy_getClientBytesReceived(void);
 uint32_t testsocket_spy_getServerBytesReceived(void);
+#define testsocket_client_spy() testsocket_spy_server()
+#define testsocket_server_spy() testsocket_spy_client()
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif //TEST_SOCKET_SPY_H
