@@ -75,5 +75,9 @@ set (MSOCKET_ADAPTER_SOURCES
 add_library(msocket_adapter ${MSOCKET_ADAPTER_HEADERS} ${MSOCKET_ADAPTER_SOURCES})
 target_link_libraries(msocket_adapter PRIVATE msocket msocket_server)
 target_include_directories(msocket_adapter PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+if (UNIT_TEST)
+    target_compile_definitions(msocket_adapter PUBLIC UNIT_TEST)
+endif()
+
 ###
 
