@@ -1041,5 +1041,6 @@ static int msocket_connect_unix_internal(msocket_t* self, const char* socketPath
       SOCKET_CLOSE(sockfd);
       return result;
    }
+   return 0;
 }
 #endif

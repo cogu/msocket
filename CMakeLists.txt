@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(msocket LANGUAGES C VERSION 0.10.0)
+project(msocket LANGUAGES C VERSION 1.0.0)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -62,7 +62,7 @@ if (UNIT_TEST)
 endif()
 ###
 
-project(msocket_adapter LANGUAGES CXX VERSION 0.10.0)
+project(msocket_adapter LANGUAGES CXX VERSION 1.0.0)
 
 ### Library cpp_msocket
 set (MSOCKET_ADAPTER_HEADERS
