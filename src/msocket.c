@@ -8,7 +8,6 @@
 *
 ******************************************************************************/
 
-
 #ifdef _WIN32
 #pragma comment(lib,"ws2_32.lib")
 #include <process.h>
@@ -561,7 +560,7 @@ int8_t msocket_send(msocket_t *self,const void *msgData,uint32_t msgLen){
          int n = send(self->tcpsockfd, (const char*) p, remain,0);
          if(n <= 0){
 #if(MSOCKET_DEBUG)
-            perror("msocket: send failed\n");
+            perror("msocket: send failed: ");
 #endif
             return -1;
          }
@@ -573,6 +572,9 @@ int8_t msocket_send(msocket_t *self,const void *msgData,uint32_t msgLen){
       MUTEX_UNLOCK(self->mutex);
       return 0;
    }
+#if(MSOCKET_DEBUG)
+   fprintf(stderr, "msocket_send: Invalid state or argument\n");
+#endif
    errno = EINVAL;
    return -1;
 }
@@ -1013,6 +1015,8 @@ static int msocket_connect_inet6(msocket_t* self, const char* address, uint16_t 
       SOCKET_CLOSE(sockfd);
       return -1;
    }
+   self->tcpInfo.port = port;
+   self->tcpsockfd = sockfd;
    return 0;
 }
 
@@ -1041,6 +1045,7 @@ static int msocket_connect_unix_internal(msocket_t* self, const char* socketPath
       SOCKET_CLOSE(sockfd);
       return result;
    }
+   self->tcpsockfd = sockfd;
    return 0;
 }
 #endif
