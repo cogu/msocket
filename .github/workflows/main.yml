@@ -1,0 +1,32 @@
+name: "build"
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC
+            cc: gcc
+            cxx: g++
+          - name: Clang
+            cc: clang
+            cxx: clang++
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: configure
+      run: cmake -S . -B build -DUNIT_TEST=ON
+
+    - name: build
+      run: cmake --build build

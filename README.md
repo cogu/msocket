@@ -30,15 +30,48 @@ MSocket is primarily used in applications which uses event-driven, message based
 
 ## Dependencies
 
-None (except OS system APIs).
+None, except for a standard C compiler and OS networking/thread APIs.
 
 ## Building with CMake
+
+### Using CMake Presets (Clang 18 + Ninja)
+
+```bash
+# Debug build
+cmake --preset clang-debug
+cmake --build --preset clang-debug
+
+# Release build
+cmake --preset clang-release
+cmake --build --preset clang-release
+
+# Test build (includes mock testsocket)
+cmake --preset clang-test
+cmake --build --preset clang-test
+
+# Address and Undefined Behavior Sanitizers (ASan + UBSan)
+cmake --preset clang-asan
+cmake --build --preset clang-asan
+
+# Thread Sanitizer (TSan)
+cmake --preset clang-tsan
+cmake --build --preset clang-tsan
+
+# Static Analysis
+cmake --preset clang-tidy
+cmake --build --preset clang-tidy
+```
+
+### Manual CMake Workflows (Linux and Windows)
 
 ```bash
 cmake -S . -B build
 cmake --build build
 ```
 
-### CMake options
+### CMake Options
 
-**UNIT_TEST (bool)**: Provides a mock socket object than can be used to spy on what is sent/recevived while unit testing.
+| CMake Option        | Usage                                     | Description                                           |
+|---------------------|-------------------------------------------|-------------------------------------------------------|
+| UNIT_TEST           | -DUNIT_TEST=ON                            | Builds mock testsocket library for unit testing       |
+| MSOCKET_SANITIZERS  | -DMSOCKET_SANITIZERS="address,undefined"  | Enables sanitizers (e.g. address,undefined or thread) |

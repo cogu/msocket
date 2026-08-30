@@ -13,16 +13,26 @@
 #include <process.h>
 
 #else
+#if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
+# ifndef _DEFAULT_SOURCE
+#  define _DEFAULT_SOURCE
+# endif
+# ifndef _POSIX_C_SOURCE
+#  define _POSIX_C_SOURCE 200809L
+# endif
+#endif
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
 
 #endif
+#include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include <malloc.h>
 #include <assert.h>
 #ifndef MSOCKET_DEBUG
 #define MSOCKET_DEBUG 0

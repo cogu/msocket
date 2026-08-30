@@ -12,7 +12,8 @@
 // INCLUDES
 //////////////////////////////////////////////////////////////////////////////
 #include "testsocket.h"
-#include <malloc.h>
+#include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <stdio.h>
 #ifdef MEM_LEAK_CHECK

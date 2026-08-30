@@ -8,13 +8,20 @@
 * Copyright (c) 2014-2020 Conny Gustafsson
 *
 ******************************************************************************/
+#if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
+# ifndef _DEFAULT_SOURCE
+#  define _DEFAULT_SOURCE
+# endif
+# ifndef _POSIX_C_SOURCE
+#  define _POSIX_C_SOURCE 200809L
+# endif
+#endif
 #include "msocket_server.h"
+#include <stdlib.h>
 #include <string.h>
-#include <malloc.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdio.h>
-#include <string.h>
 #include "osmacro.h"
 #include "osutil.h"
 
@@ -23,7 +30,6 @@
 #define strdup _strdup
 #else
 #include <arpa/inet.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
 #endif

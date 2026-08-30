@@ -1,12 +1,41 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.20)
 
-project(msocket LANGUAGES C VERSION 1.0.0)
+project(msocket LANGUAGES C CXX VERSION 1.0.0)
+
+set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
+set(CMAKE_DISABLE_SOURCE_CHANGES ON)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_OPTIMIZE_DEPENDENCIES ON)
+
+if(MSVC)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+    add_compile_options(/W4)
+else()
+    add_compile_options(-Wall)
+endif()
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
 option(UNIT_TEST "Unit Test Build" OFF)
+
+set(MSOCKET_SANITIZERS "" CACHE STRING "Comma-separated sanitizers to enable (for example: address,undefined or thread)")
+set_property(CACHE MSOCKET_SANITIZERS PROPERTY STRINGS "" "address" "address,undefined" "thread")
+
+if(MSOCKET_SANITIZERS)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+        add_compile_options(-fsanitize=${MSOCKET_SANITIZERS} -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=${MSOCKET_SANITIZERS})
+    else()
+        message(FATAL_ERROR "MSOCKET_SANITIZERS is only supported with GCC or Clang")
+    endif()
+endif()
 
 ### Library msocket
 
@@ -23,7 +52,7 @@ set (MSOCKET_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/osutil.c
 )
 
-add_library(msocket ${MSOCKET_HEADERS} ${MSOCKET_SOURCES} )
+add_library(msocket ${MSOCKET_HEADERS} ${MSOCKET_SOURCES})
 target_link_libraries(msocket PRIVATE Threads::Threads)
 target_include_directories(msocket PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 ###
@@ -62,8 +91,6 @@ if (UNIT_TEST)
 endif()
 ###
 
-project(msocket_adapter LANGUAGES CXX VERSION 1.0.0)
-
 ### Library cpp_msocket
 set (MSOCKET_ADAPTER_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/msocket_adapter.h
@@ -80,4 +107,6 @@ if (UNIT_TEST)
 endif()
 
 ###
+
+
 
