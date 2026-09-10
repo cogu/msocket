@@ -1,0 +1,190 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "clang-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-18",
+        "CMAKE_CXX_COMPILER": "clang++-18",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+      }
+    },
+    {
+      "name": "clang-debug",
+      "displayName": "Clang 18 Debug",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "clang-release",
+      "displayName": "Clang 18 Release",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "clang-test",
+      "displayName": "Clang 18 Unit Tests",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "UNIT_TEST": true
+      }
+    },
+    {
+      "name": "clang-asan",
+      "displayName": "Clang 18 Address and Undefined Behavior Sanitizers",
+      "inherits": "clang-test",
+      "cacheVariables": {
+        "MSOCKET_SANITIZERS": "address,undefined"
+      }
+    },
+    {
+      "name": "clang-tsan",
+      "displayName": "Clang 18 Thread Sanitizer",
+      "inherits": "clang-test",
+      "cacheVariables": {
+        "MSOCKET_SANITIZERS": "thread"
+      }
+    },
+    {
+      "name": "clang-tidy",
+      "displayName": "Clang 18 Static Analysis",
+      "inherits": "clang-test",
+      "cacheVariables": {
+        "CMAKE_C_CLANG_TIDY": "clang-tidy-18",
+        "CMAKE_CXX_CLANG_TIDY": "clang-tidy-18"
+      }
+    },
+    {
+      "name": "gcc-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+      }
+    },
+    {
+      "name": "gcc-debug",
+      "displayName": "GCC Debug",
+      "inherits": "gcc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "gcc-release",
+      "displayName": "GCC Release",
+      "inherits": "gcc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "gcc-test",
+      "displayName": "GCC Unit Tests",
+      "inherits": "gcc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "UNIT_TEST": true
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "clang-debug",
+      "configurePreset": "clang-debug"
+    },
+    {
+      "name": "clang-release",
+      "configurePreset": "clang-release"
+    },
+    {
+      "name": "clang-test",
+      "configurePreset": "clang-test",
+      "targets": [
+        "msocket_unit"
+      ]
+    },
+    {
+      "name": "clang-asan",
+      "configurePreset": "clang-asan",
+      "targets": [
+        "msocket_unit"
+      ]
+    },
+    {
+      "name": "clang-tsan",
+      "configurePreset": "clang-tsan",
+      "targets": [
+        "msocket_unit"
+      ]
+    },
+    {
+      "name": "clang-tidy",
+      "configurePreset": "clang-tidy",
+      "targets": [
+        "msocket_unit"
+      ]
+    },
+    {
+      "name": "gcc-debug",
+      "configurePreset": "gcc-debug"
+    },
+    {
+      "name": "gcc-release",
+      "configurePreset": "gcc-release"
+    },
+    {
+      "name": "gcc-test",
+      "configurePreset": "gcc-test",
+      "targets": [
+        "msocket_unit"
+      ]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "clang-test",
+      "configurePreset": "clang-test",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-asan",
+      "configurePreset": "clang-asan",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-tsan",
+      "configurePreset": "clang-tsan",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc-test",
+      "configurePreset": "gcc-test",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
