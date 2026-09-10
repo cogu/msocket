@@ -1,8 +1,22 @@
-#build files
-**/Debug/
-**/Release
-**/build/
-**.vs/
-*.VC.db
-*.VC.opendb
-*.vcxproj.user
+# Build directories
+build/
+build-*/
+CMakeUserPresets.json
+compile_commands.json
+
+# Object and binary files
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
