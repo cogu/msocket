@@ -1,0 +1,58 @@
+name: "unit tests"
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC
+            os: ubuntu-latest
+            cc: gcc
+            cxx: g++
+          - name: Clang
+            os: ubuntu-latest
+            cc: clang
+            cxx: clang++
+          - name: MSVC
+            os: windows-latest
+
+    steps:
+    - name: checkout adt
+      uses: actions/checkout@v4
+      with:
+        repository: cogu/adt
+        ref: v0.3.7
+        path: adt
+
+    - name: checkout msocket
+      uses: actions/checkout@v4
+      with:
+        path: main
+
+    - name: configure (Linux)
+      if: runner.os != 'Windows'
+      run: cmake -S . -B build -DUNIT_TEST=ON
+      working-directory: main
+      env:
+        CC: ${{ matrix.cc }}
+        CXX: ${{ matrix.cxx }}
+
+    - name: configure (Windows)
+      if: runner.os == 'Windows'
+      run: cmake -S . -B build -DUNIT_TEST=ON
+      working-directory: main
+
+    - name: build
+      run: cmake --build build --target msocket_unit --config Debug
+      working-directory: main
+
+    - name: test
+      run: ctest --test-dir build -C Debug --output-on-failure
+      working-directory: main
