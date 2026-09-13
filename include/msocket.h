@@ -59,27 +59,27 @@ typedef uint8_t msocket_state_t;
 
 #define MSOCKET_ADDRSTRLEN 46u
 
-struct msocket_t;
+struct msocket_tag;
 struct msocket_server_tag;
-typedef struct msocket_os_t msocket_os_t;
+struct msocket_os_tag;
 
-typedef struct msocket_handler_t {
-   void (*stream_accept)(void *arg, struct msocket_server_tag *srv, struct msocket_t *msocket);
-   void (*stream_connected)(void *arg, const char *addr, uint16_t port);
-   void (*stream_disconnected)(void *arg);
-   msocket_error_t (*stream_data)(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint);
-   void (*stream_inactivity)(const uint32_t elapsed_ms);
-   void (*datagram_msg)(void *arg, const char *addr, uint16_t port, const uint8_t *data, const uint32_t num_bytes);
+typedef struct msocket_handler_tag {
+   void (*stream_accept)(void *arg, struct msocket_server_tag *srv, void *socket);
+   void (*stream_connected)(void *arg, void *socket, const char *addr, uint16_t port);
+   void (*stream_disconnected)(void *arg, void *socket);
+   msocket_error_t (*stream_data)(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint);
+   void (*stream_inactivity)(void *arg, void *socket, const uint32_t elapsed_ms);
+   void (*datagram_msg)(void *arg, void *socket, const char *addr, uint16_t port, const uint8_t *data, const uint32_t num_bytes);
 } msocket_handler_t;
 
-typedef struct msocket_addr_info_t {
+typedef struct msocket_addr_info_tag {
    uint16_t port;
    char addr[MSOCKET_ADDRSTRLEN];
 } msocket_addr_info_t;
 
 typedef msocket_addr_info_t msocketAddrInfo_t;
 
-typedef struct msocket_t {
+typedef struct msocket_tag {
    msocket_addr_info_t stream_info;
    msocket_addr_info_t udp_info;
    adt_streambuffer_t stream_rx_buf;
@@ -90,7 +90,8 @@ typedef struct msocket_t {
    uint8_t address_family;
    uint32_t inactivity_ms;
    uint32_t inactivity_call_ms;
-   msocket_os_t *os;
+   struct msocket_server_tag *server;
+   struct msocket_os_tag *os;
 } msocket_t;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -180,6 +181,14 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child);
  * @param handler_arg User context pointer passed to callback functions.
  */
 void msocket_set_handler(msocket_t *self, const msocket_handler_t *handler_table, void *handler_arg);
+
+/**
+ * Associates a parent msocket_server instance with this socket for automatic reaping upon disconnection.
+ *
+ * @param self Pointer to msocket_t instance.
+ * @param server Pointer to parent msocket_server instance, or NULL to detach.
+ */
+void msocket_set_server(msocket_t *self, struct msocket_server_tag *server);
 
 /**
  * Starts the background I/O event thread for this socket.

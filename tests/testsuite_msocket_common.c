@@ -18,9 +18,10 @@ static int g_msg_count = 0;
 static uint32_t g_total_bytes = 0;
 static uint32_t g_inactivity_elapsed = 0;
 
-static msocket_error_t fixed_msg_parser(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
+static msocket_error_t fixed_msg_parser(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    (void)data;
    (void)msg_size_hint;
    /* Consumes in fixed 4-byte frames */
@@ -34,8 +35,10 @@ static msocket_error_t fixed_msg_parser(void *arg, const uint8_t *data, const ui
    return MSOCKET_NO_ERROR;
 }
 
-static void on_inactivity(const uint32_t elapsed_ms)
+static void on_inactivity(void *arg, void *socket, const uint32_t elapsed_ms)
 {
+   (void)arg;
+   (void)socket;
    g_inactivity_elapsed = elapsed_ms;
 }
 
@@ -120,9 +123,10 @@ static void test_msocket_inactivity(CuTest *tc)
 static int g_hint_msg_count = 0;
 static uint32_t g_hint_last_msg_len = 0;
 
-static msocket_error_t hint_msg_parser(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
+static msocket_error_t hint_msg_parser(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    if (num_bytes < 4u) {
       /* Scenario 3: not enough bytes even for header, no size hint */
       *consumed_bytes = 0u;

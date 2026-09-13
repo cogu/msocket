@@ -36,16 +36,18 @@ static volatile int g_disconnected = 0;
 // CLIENT EVENT HANDLERS
 //////////////////////////////////////////////////////////////////////////////
 
-static void on_connected(void *arg, const char *addr, uint16_t port)
+static void on_connected(void *arg, void *socket, const char *addr, uint16_t port)
 {
    (void)arg;
+   (void)socket;
    printf("[CLIENT] Connected successfully to %s:%u\n", addr, port);
    g_connected = 1;
 }
 
-static msocket_error_t on_data(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
+static msocket_error_t on_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    (void)msg_size_hint;
    *consumed_bytes = num_bytes;
    printf("[CLIENT] Server echoed %u bytes: \"%.*s\"\n", num_bytes, (int)num_bytes, (const char *)data);
@@ -53,9 +55,10 @@ static msocket_error_t on_data(void *arg, const uint8_t *data, const uint32_t nu
    return MSOCKET_NO_ERROR;
 }
 
-static void on_disconnected(void *arg)
+static void on_disconnected(void *arg, void *socket)
 {
    (void)arg;
+   (void)socket;
    printf("[CLIENT] Connection closed by server\n");
    g_disconnected = 1;
 }

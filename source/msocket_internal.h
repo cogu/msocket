@@ -49,6 +49,14 @@ typedef SOCKET os_socket_t;
 # define MUTEX_UNLOCK(m)             LeaveCriticalSection(&(m))
 # define MUTEX_DESTROY(m)            DeleteCriticalSection(&(m))
 
+/* Condition Variable */
+# define COND_T                      CONDITION_VARIABLE
+# define COND_INIT(c)                InitializeConditionVariable(&(c))
+# define COND_WAIT(c, m)             SleepConditionVariableCS(&(c), &(m), INFINITE)
+# define COND_SIGNAL(c)              WakeConditionVariable(&(c))
+# define COND_BROADCAST(c)           WakeAllConditionVariable(&(c))
+# define COND_DESTROY(c)             /* no-op on Windows */
+
 /* Semaphore */
 # define SEMAPHORE_T                 HANDLE
 # define SEMAPHORE_CREATE(s, n)      ((s) = CreateSemaphore(NULL, (LONG)(n), 1000, NULL))
@@ -93,6 +101,14 @@ typedef int os_socket_t;
 # define MUTEX_UNLOCK(m)             pthread_mutex_unlock(&(m))
 # define MUTEX_DESTROY(m)            pthread_mutex_destroy(&(m))
 
+/* Condition Variable */
+# define COND_T                      pthread_cond_t
+# define COND_INIT(c)                pthread_cond_init(&(c), NULL)
+# define COND_WAIT(c, m)             pthread_cond_wait(&(c), &(m))
+# define COND_SIGNAL(c)              pthread_cond_signal(&(c))
+# define COND_BROADCAST(c)           pthread_cond_broadcast(&(c))
+# define COND_DESTROY(c)             pthread_cond_destroy(&(c))
+
 /* Semaphore */
 # define SEMAPHORE_T                 sem_t
 # define SEMAPHORE_CREATE(s, n)      sem_init(&(s), 0, (unsigned int)(n))
@@ -115,14 +131,15 @@ typedef int os_socket_t;
 typedef struct msocket_thread_t msocket_thread_t;
 typedef struct msocket_sem_t msocket_sem_t;
 
-struct msocket_server_os_t {
+struct msocket_server_os_tag {
    msocket_thread_t *accept_thread;
    msocket_thread_t *cleanup_thread;
    MUTEX_T mutex;
-   msocket_sem_t *sem;
+   COND_T cond;
 };
+typedef struct msocket_server_os_tag msocket_server_os_t;
 
-struct msocket_os_t {
+struct msocket_os_tag {
    os_socket_t tcp_sockfd;
    os_socket_t udp_sockfd;
    msocket_thread_t *io_thread;
@@ -130,6 +147,7 @@ struct msocket_os_t {
    bool thread_running;
    bool new_connection;
 };
+typedef struct msocket_os_tag msocket_os_t;
 
 /* Threading API */
 msocket_thread_t *msocket_thread_create(void (*func)(void *arg), void *arg);

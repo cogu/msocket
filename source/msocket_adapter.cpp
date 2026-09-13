@@ -17,8 +17,9 @@ namespace
 {
    extern "C"
    {
-      void c_stream_connected(void* arg, const char* addr, uint16_t port)
+      void c_stream_connected(void* arg, void* socket, const char* addr, uint16_t port)
       {
+         (void)socket;
          auto listener = reinterpret_cast<msocket::SocketListener*>(arg);
          if (listener != nullptr)
          {
@@ -27,8 +28,9 @@ namespace
          }
       }
 
-      void c_stream_disconnected(void* arg)
+      void c_stream_disconnected(void* arg, void* socket)
       {
+         (void)socket;
          auto listener = reinterpret_cast<msocket::SocketListener*>(arg);
          if (listener != nullptr)
          {
@@ -36,8 +38,9 @@ namespace
          }
       }
 
-      msocket_error_t c_stream_data(void* arg, const uint8_t* data, const uint32_t num_bytes, uint32_t* consumed_bytes, uint32_t* msg_size_hint)
+      msocket_error_t c_stream_data(void* arg, void* socket, const uint8_t* data, const uint32_t num_bytes, uint32_t* consumed_bytes, uint32_t* msg_size_hint)
       {
+         (void)socket;
          auto listener = reinterpret_cast<msocket::SocketListener*>(arg);
          if (listener != nullptr)
          {
@@ -57,10 +60,11 @@ namespace
          return MSOCKET_INVALID_ARGUMENT_ERROR;
       }
 
-      void c_stream_accept(void* arg, struct msocket_server_tag* server, struct msocket_t* child_socket)
+      void c_stream_accept(void* arg, msocket_server_t* server, void* socket)
       {
          (void)server;
          auto listener = reinterpret_cast<msocket::ServerListener*>(arg);
+         auto child_socket = reinterpret_cast<msocket_t*>(socket);
          if ((listener != nullptr) && (child_socket != nullptr))
          {
             auto accepted = std::make_unique<msocket::TcpSocket>(child_socket, true);
@@ -68,17 +72,19 @@ namespace
          }
       }
 
-      void legacy_c_stream_accept(void* arg, struct msocket_server_tag* server, struct msocket_t* child_socket)
+      void legacy_c_stream_accept(void* arg, msocket_server_t* server, void* socket)
       {
          auto handler = reinterpret_cast<msocket::Handler*>(arg);
+         auto child_socket = reinterpret_cast<msocket_t*>(socket);
          if (handler != nullptr)
          {
             handler->socket_accepted(server, child_socket);
          }
       }
 
-      void legacy_c_datagram_msg(void* arg, const char* addr, uint16_t port, const uint8_t* data, const uint32_t num_bytes)
+      void legacy_c_datagram_msg(void* arg, void* socket, const char* addr, uint16_t port, const uint8_t* data, const uint32_t num_bytes)
       {
+         (void)socket;
          auto handler = reinterpret_cast<msocket::Handler*>(arg);
          if (handler != nullptr)
          {

@@ -27,17 +27,19 @@ static char g_client_recv_buf[64];
 static char g_server_recv_buf[64];
 static char g_udp_recv_buf[64];
 
-static void client_on_connected(void *arg, const char *addr, uint16_t port)
+static void client_on_connected(void *arg, void *socket, const char *addr, uint16_t port)
 {
    (void)arg;
+   (void)socket;
    (void)addr;
    (void)port;
    msocket_sem_post(g_sem_client_connected);
 }
 
-static msocket_error_t client_on_data(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
+static msocket_error_t client_on_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    (void)msg_size_hint;
    uint32_t copy_len = (num_bytes < sizeof(g_client_recv_buf) - 1u) ? num_bytes : sizeof(g_client_recv_buf) - 1u;
    memcpy(g_client_recv_buf, data, copy_len);
@@ -47,9 +49,10 @@ static msocket_error_t client_on_data(void *arg, const uint8_t *data, const uint
    return MSOCKET_NO_ERROR;
 }
 
-static msocket_error_t server_on_data(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
+static msocket_error_t server_on_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    (void)msg_size_hint;
    uint32_t copy_len = (num_bytes < sizeof(g_server_recv_buf) - 1u) ? num_bytes : sizeof(g_server_recv_buf) - 1u;
    memcpy(g_server_recv_buf, data, copy_len);
@@ -65,9 +68,10 @@ static msocket_error_t server_on_data(void *arg, const uint8_t *data, const uint
    return MSOCKET_NO_ERROR;
 }
 
-static void on_udp_msg(void *arg, const char *addr, uint16_t port, const uint8_t *data, const uint32_t num_bytes)
+static void on_udp_msg(void *arg, void *socket, const char *addr, uint16_t port, const uint8_t *data, const uint32_t num_bytes)
 {
    (void)arg;
+   (void)socket;
    (void)addr;
    (void)port;
    uint32_t copy_len = (num_bytes < sizeof(g_udp_recv_buf) - 1u) ? num_bytes : sizeof(g_udp_recv_buf) - 1u;

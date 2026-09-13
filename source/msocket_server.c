@@ -15,15 +15,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include <assert.h>
 #include "msocket_server.h"
 #include "msocket_internal.h"
 
-//////////////////////////////////////////////////////////////////////////////
-// PRIVATE CONSTANTS AND DATA TYPES
-//////////////////////////////////////////////////////////////////////////////
-#define CLEANUP_INTERVAL_MS 200u
+
 
 //////////////////////////////////////////////////////////////////////////////
 // PRIVATE FUNCTION PROTOTYPES
@@ -57,7 +53,7 @@ void msocket_server_create(msocket_server_t *self, uint8_t address_family, void 
          self->os->accept_thread = NULL;
          self->os->cleanup_thread = NULL;
          MUTEX_INIT(self->os->mutex);
-         self->os->sem = msocket_sem_new(0u);
+         COND_INIT(self->os->cond);
       }
    }
 }
@@ -71,6 +67,7 @@ void msocket_server_destroy(msocket_server_t *self)
       if (accept_socket != NULL) {
          msocket_close(accept_socket);
       }
+      COND_BROADCAST(self->os->cond);
       MUTEX_UNLOCK(self->os->mutex);
 
       if (self->os->accept_thread != NULL) {
@@ -86,7 +83,7 @@ void msocket_server_destroy(msocket_server_t *self)
       }
 
       adt_ary_destroy(&self->cleanup_items);
-      msocket_sem_delete(self->os->sem);
+      COND_DESTROY(self->os->cond);
       MUTEX_DESTROY(self->os->mutex);
 
       if (self->udp_addr != NULL) {
@@ -165,15 +162,24 @@ void msocket_server_disable_cleanup(msocket_server_t *self)
    }
 }
 
+void msocket_server_reap_connection(msocket_server_t *self, void *arg)
+{
+   if (self != NULL && self->os != NULL && arg != NULL) {
+      MUTEX_LOCK(self->os->mutex);
+      if (self->cleanup_stop == 0u) {
+         adt_ary_push(&self->cleanup_items, arg);
+         COND_SIGNAL(self->os->cond);
+      }
+      MUTEX_UNLOCK(self->os->mutex);
+   }
+}
+
 void msocket_server_cleanup_connection(msocket_server_t *self, void *arg)
 {
-   if (self != NULL && self->os != NULL) {
-      MUTEX_LOCK(self->os->mutex);
-      assert(self->cleanup_stop == 0u);
-      adt_ary_push(&self->cleanup_items, arg);
-      MUTEX_UNLOCK(self->os->mutex);
-      msocket_sem_post(self->os->sem);
+   if (self != NULL && arg != NULL && self->destructor == msocket_vdelete) {
+      msocket_set_server((msocket_t *)arg, NULL);
    }
+   msocket_server_reap_connection(self, arg);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -244,8 +250,11 @@ static void accept_task(void *arg)
       if (child == NULL) {
          break;
       }
+      if (self->destructor != NULL) {
+         msocket_set_server(child, self);
+      }
       if (self->handler_table.stream_accept != NULL) {
-         self->handler_table.stream_accept(self->handler_arg, self, child);
+         self->handler_table.stream_accept(self->handler_arg, self, (void *)child);
       }
    }
 
@@ -265,25 +274,21 @@ static void cleanup_task(void *arg)
    }
 
    while (1) {
-      int8_t rc = msocket_sem_test(self->os->sem);
-      if (rc < 0) {
-         break;
-      } else if (rc > 0) {
-         void *item = NULL;
-         MUTEX_LOCK(self->os->mutex);
-         if (adt_ary_length(&self->cleanup_items) > 0) {
-            item = adt_ary_shift(&self->cleanup_items);
-         }
+      void *item = NULL;
+      MUTEX_LOCK(self->os->mutex);
+      while (adt_ary_length(&self->cleanup_items) == 0 && self->cleanup_stop == 0u) {
+         COND_WAIT(self->os->cond, self->os->mutex);
+      }
+      if (adt_ary_length(&self->cleanup_items) > 0) {
+         item = adt_ary_shift(&self->cleanup_items);
+      } else if (self->cleanup_stop != 0u) {
          MUTEX_UNLOCK(self->os->mutex);
+         break;
+      }
+      MUTEX_UNLOCK(self->os->mutex);
 
-         if (item != NULL && self->destructor != NULL) {
-            self->destructor(item);
-         }
-      } else {
-         if (self->cleanup_stop != 0u) {
-            break;
-         }
-         SLEEP_MS(CLEANUP_INTERVAL_MS);
+      if (item != NULL && self->destructor != NULL) {
+         self->destructor(item);
       }
    }
 }

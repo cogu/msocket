@@ -104,10 +104,10 @@ void testsocket_on_connect(testsocket_t *self)
 {
    if (self != NULL) {
       if (self->server_handler_table.stream_connected != NULL) {
-         self->server_handler_table.stream_connected(self->server_handler_arg, "testsocket", 0);
+         self->server_handler_table.stream_connected(self->server_handler_arg, (void *)self, "testsocket", 0);
       }
       if (self->client_handler_table.stream_connected != NULL) {
-         self->client_handler_table.stream_connected(self->client_handler_arg, "testsocket", 0);
+         self->client_handler_table.stream_connected(self->client_handler_arg, (void *)self, "testsocket", 0);
       }
    }
 }
@@ -116,10 +116,10 @@ void testsocket_on_disconnect(testsocket_t *self)
 {
    if (self != NULL) {
       if (self->server_handler_table.stream_disconnected != NULL) {
-         self->server_handler_table.stream_disconnected(self->server_handler_arg);
+         self->server_handler_table.stream_disconnected(self->server_handler_arg, (void *)self);
       }
       if (self->client_handler_table.stream_disconnected != NULL) {
-         self->client_handler_table.stream_disconnected(self->client_handler_arg);
+         self->client_handler_table.stream_disconnected(self->client_handler_arg, (void *)self);
       }
    }
 }
@@ -134,7 +134,7 @@ void testsocket_run(testsocket_t *self)
          uint32_t consumed_bytes = 0u;
          uint32_t msg_size_hint = 0u;
          const uint8_t *data = adt_bytearray_data(&self->pending_server);
-         msocket_error_t result = self->server_handler_table.stream_data(self->server_handler_arg, data, server_pending, &consumed_bytes, &msg_size_hint);
+         msocket_error_t result = self->server_handler_table.stream_data(self->server_handler_arg, (void *)self, data, server_pending, &consumed_bytes, &msg_size_hint);
          if (result == MSOCKET_NO_ERROR && consumed_bytes > 0u) {
             adt_bytearray_trim_left(&self->pending_server, data + consumed_bytes);
          }
@@ -144,7 +144,7 @@ void testsocket_run(testsocket_t *self)
          uint32_t consumed_bytes = 0u;
          uint32_t msg_size_hint = 0u;
          const uint8_t *data = adt_bytearray_data(&self->pending_client);
-         msocket_error_t result = self->client_handler_table.stream_data(self->client_handler_arg, data, client_pending, &consumed_bytes, &msg_size_hint);
+         msocket_error_t result = self->client_handler_table.stream_data(self->client_handler_arg, (void *)self, data, client_pending, &consumed_bytes, &msg_size_hint);
          if (result == MSOCKET_NO_ERROR && consumed_bytes > 0u) {
             adt_bytearray_trim_left(&self->pending_client, data + consumed_bytes);
          }
