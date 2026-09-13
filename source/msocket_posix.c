@@ -1,8 +1,8 @@
 /*****************************************************************************
-* \file:    msocket_linux.c
+* \file:    msocket_posix.c
 * \author:  Conny Gustafsson
 * \date:    2014-10-01
-* \brief:   Linux/POSIX platform-specific threading, sync, and UNIX domain sockets
+* \brief:   POSIX platform-specific threading, sync, and UNIX domain sockets
 *
 * Copyright (c) 2014-2026 Conny Gustafsson
 * SPDX-License-Identifier: MIT
