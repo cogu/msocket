@@ -60,13 +60,17 @@ static msocket_error_t client_on_data(void *arg, const uint8_t *data, const uint
    return MSOCKET_NO_ERROR;
 }
 
+static msocket_server_t *g_server = NULL;
+
 static void client_on_disconnected(void *arg)
 {
    msocket_t *client_socket = (msocket_t *)arg;
    printf("[SERVER] Client disconnected\n");
 
-   /* Close socket descriptor */
-   msocket_close(client_socket);
+   /* Queue disconnected socket for asynchronous destruction by cleanup thread */
+   if (g_server != NULL) {
+      msocket_server_cleanup_connection(g_server, (void *)client_socket);
+   }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -76,7 +80,7 @@ static void client_on_disconnected(void *arg)
 static void server_on_accept(void *arg, msocket_server_t *srv, msocket_t *child_socket)
 {
    (void)srv;
-   msocket_server_t *server = (msocket_server_t *)arg;
+   (void)arg;
 
    printf("[SERVER] Accepted new connection from %s:%u\n", child_socket->stream_info.addr, child_socket->stream_info.port);
 
@@ -95,11 +99,6 @@ static void server_on_accept(void *arg, msocket_server_t *srv, msocket_t *child_
       fprintf(stderr, "[SERVER] Failed to start I/O for accepted socket\n");
       msocket_delete(child_socket);
       return;
-   }
-
-   /* Register with server's automatic cleanup thread */
-   if (server != NULL) {
-      msocket_server_cleanup_connection(server, (void *)child_socket);
    }
 }
 
@@ -131,6 +130,7 @@ int main(int argc, char *argv[])
       fprintf(stderr, "[SERVER] Failed to allocate msocket_server\n");
       return 1;
    }
+   g_server = server;
 
    msocket_handler_t server_handler;
    memset(&server_handler, 0, sizeof(server_handler));
