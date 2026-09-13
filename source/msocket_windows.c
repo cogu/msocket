@@ -1,10 +1,10 @@
 /*****************************************************************************
 * \file:    msocket_windows.c
 * \author:  Conny Gustafsson
-* \date:    2014-10-01
+* \date:    2026-09-10
 * \brief:   Windows platform-specific threading, sync, and lifecycle management
 *
-* Copyright (c) 2014-2026 Conny Gustafsson
+* Copyright (c) 2026 Conny Gustafsson
 * SPDX-License-Identifier: MIT
 * See LICENSE in project root for full license terms.
 ******************************************************************************/
