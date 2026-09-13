@@ -217,7 +217,6 @@ msocket_state_t msocket_state(msocket_t *self)
 msocket_error_t msocket_listen(msocket_t *self, uint8_t mode, uint16_t port, const char *addr)
 {
    if (self == NULL || (mode != MSOCKET_MODE_DGRAM && mode != MSOCKET_MODE_STREAM)) {
-      errno = EINVAL;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    if (self->os == NULL) {
@@ -319,7 +318,6 @@ msocket_error_t msocket_listen(msocket_t *self, uint8_t mode, uint16_t port, con
 msocket_error_t msocket_unix_listen(msocket_t *self, const char *socket_path)
 {
    if (self == NULL || socket_path == NULL) {
-      errno = EINVAL;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    return msocket_os_unix_listen(self, socket_path);
@@ -432,11 +430,9 @@ static msocket_error_t msocket_start_io_thread(msocket_t *self)
 msocket_error_t msocket_start_io(msocket_t *self)
 {
    if (self == NULL || self->os == NULL) {
-      errno = EINVAL;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    if (self->handler_table == NULL) {
-      errno = EFAULT;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    return msocket_start_io_thread(self);
@@ -445,11 +441,9 @@ msocket_error_t msocket_start_io(msocket_t *self)
 msocket_error_t msocket_connect(msocket_t *self, const char *addr, uint16_t port)
 {
    if (self == NULL || addr == NULL || (self->socket_mode & MSOCKET_MODE_STREAM) != 0) {
-      errno = EINVAL;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    if (self->handler_table == NULL) {
-      errno = EFAULT;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    if (self->os == NULL) {
@@ -516,11 +510,9 @@ msocket_error_t msocket_connect(msocket_t *self, const char *addr, uint16_t port
 msocket_error_t msocket_unix_connect(msocket_t *self, const char *socket_path)
 {
    if (self == NULL || socket_path == NULL || (self->socket_mode & MSOCKET_MODE_STREAM) != 0) {
-      errno = EINVAL;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    if (self->handler_table == NULL) {
-      errno = EFAULT;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    return msocket_os_unix_connect(self, socket_path);
@@ -529,7 +521,6 @@ msocket_error_t msocket_unix_connect(msocket_t *self, const char *socket_path)
 msocket_error_t msocket_send(msocket_t *self, const void *msg_data, uint32_t msg_len)
 {
    if (self == NULL || msg_data == NULL || (self->socket_mode & MSOCKET_MODE_STREAM) == 0) {
-      errno = EINVAL;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    if (self->os == NULL || OS_SOCKET_IS_INVALID(self->os->tcp_sockfd)) {
@@ -557,7 +548,6 @@ msocket_error_t msocket_send(msocket_t *self, const void *msg_data, uint32_t msg
 msocket_error_t msocket_send_to(msocket_t *self, const char *addr, uint16_t port, const void *msg_data, uint32_t msg_len)
 {
    if (self == NULL || addr == NULL || (self->socket_mode & MSOCKET_MODE_DGRAM) == 0) {
-      errno = EINVAL;
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    if (self->os == NULL || OS_SOCKET_IS_INVALID(self->os->udp_sockfd)) {
