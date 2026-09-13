@@ -28,9 +28,9 @@
 #define DEFAULT_PORT 5000u
 #define DEFAULT_ADDR "127.0.0.1"
 
-static volatile int g_connected = 0;
-static volatile int g_received = 0;
-static volatile int g_disconnected = 0;
+static volatile int m_connected = 0;
+static volatile int m_received = 0;
+static volatile int m_disconnected = 0;
 
 //////////////////////////////////////////////////////////////////////////////
 // CLIENT EVENT HANDLERS
@@ -41,7 +41,7 @@ static void on_connected(void *arg, void *socket, const char *addr, uint16_t por
    (void)arg;
    (void)socket;
    printf("[CLIENT] Connected successfully to %s:%u\n", addr, port);
-   g_connected = 1;
+   m_connected = 1;
 }
 
 static msocket_error_t on_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
@@ -51,7 +51,7 @@ static msocket_error_t on_data(void *arg, void *socket, const uint8_t *data, con
    (void)msg_size_hint;
    *consumed_bytes = num_bytes;
    printf("[CLIENT] Server echoed %u bytes: \"%.*s\"\n", num_bytes, (int)num_bytes, (const char *)data);
-   g_received = 1;
+   m_received = 1;
    return MSOCKET_NO_ERROR;
 }
 
@@ -60,7 +60,7 @@ static void on_disconnected(void *arg, void *socket)
    (void)arg;
    (void)socket;
    printf("[CLIENT] Connection closed by server\n");
-   g_disconnected = 1;
+   m_disconnected = 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 
    /* Wait for connection to be confirmed */
    int wait_count = 0;
-   while (!g_connected && !g_disconnected && wait_count++ < 50) {
+   while (!m_connected && !m_disconnected && wait_count++ < 50) {
 #ifdef _WIN32
       Sleep(20);
 #else
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 #endif
    }
 
-   if (!g_connected) {
+   if (!m_connected) {
       fprintf(stderr, "[CLIENT] Connection timed out\n");
       msocket_delete(client);
       return 1;
@@ -136,7 +136,7 @@ int main(int argc, char **argv)
    size_t num_messages = sizeof(messages) / sizeof(messages[0]);
 
    for (size_t i = 0; i < num_messages; i++) {
-      g_received = 0;
+      m_received = 0;
       printf("[CLIENT] Sending: \"%s\"\n", messages[i]);
       if (msocket_send(client, messages[i], (uint32_t)strlen(messages[i])) != MSOCKET_NO_ERROR) {
          fprintf(stderr, "[CLIENT] Failed to send message\n");
@@ -145,7 +145,7 @@ int main(int argc, char **argv)
 
       /* Wait for echo response */
       int resp_wait = 0;
-      while (!g_received && !g_disconnected && resp_wait++ < 50) {
+      while (!m_received && !m_disconnected && resp_wait++ < 50) {
 #ifdef _WIN32
          Sleep(20);
 #else

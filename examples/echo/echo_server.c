@@ -29,12 +29,12 @@
 //////////////////////////////////////////////////////////////////////////////
 #define DEFAULT_PORT 5000u
 
-static volatile int g_running = 1;
+static volatile int m_running = 1;
 
 static void sigint_handler(int signum)
 {
    (void)signum;
-   g_running = 0;
+   m_running = 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
    /* Bind and start listening */
    msocket_server_start(server, NULL, 0u, port);
 
-   while (g_running) {
+   while (m_running) {
 #ifdef _WIN32
       Sleep(200);
 #else
