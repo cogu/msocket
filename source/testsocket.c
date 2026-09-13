@@ -11,7 +11,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include "testsocket.h"
 
 void testsocket_create(testsocket_t *self)
@@ -39,8 +38,6 @@ testsocket_t *testsocket_new(void)
    testsocket_t *self = (testsocket_t *)malloc(sizeof(testsocket_t));
    if (self != NULL) {
       testsocket_create(self);
-   } else {
-      errno = ENOMEM;
    }
    return self;
 }
