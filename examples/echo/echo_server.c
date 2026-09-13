@@ -41,10 +41,11 @@ static void sigint_handler(int signum)
 // PER-CLIENT EVENT HANDLERS
 //////////////////////////////////////////////////////////////////////////////
 
-static msocket_error_t client_on_data(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
+static msocket_error_t on_client_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
 {
+   (void)arg;
    (void)msg_size_hint;
-   msocket_t *client_socket = (msocket_t *)arg;
+   msocket_t *client_socket = (msocket_t *)socket;
 
    /* Mark all received data as consumed */
    *consumed_bytes = num_bytes;
@@ -60,36 +61,31 @@ static msocket_error_t client_on_data(void *arg, const uint8_t *data, const uint
    return MSOCKET_NO_ERROR;
 }
 
-static msocket_server_t *g_server = NULL;
-
-static void client_on_disconnected(void *arg)
+static void on_client_disconnected(void *arg, void *socket)
 {
-   msocket_t *client_socket = (msocket_t *)arg;
+   (void)arg;
+   (void)socket;
    printf("[SERVER] Client disconnected\n");
-
-   /* Queue disconnected socket for asynchronous destruction by cleanup thread */
-   if (g_server != NULL) {
-      msocket_server_cleanup_connection(g_server, (void *)client_socket);
-   }
 }
 
 //////////////////////////////////////////////////////////////////////////////
 // SERVER CONNECTION ACCEPT CALLBACK
 //////////////////////////////////////////////////////////////////////////////
 
-static void server_on_accept(void *arg, msocket_server_t *srv, msocket_t *child_socket)
+static void server_on_accept(void *arg, msocket_server_t *srv, void *socket)
 {
-   (void)srv;
    (void)arg;
+   (void)srv;
+   msocket_t *child_socket = (msocket_t *)socket;
 
    printf("[SERVER] Accepted new connection from %s:%u\n", child_socket->stream_info.addr, child_socket->stream_info.port);
 
    /* Configure handlers for the new child socket */
    msocket_handler_t client_handler;
    memset(&client_handler, 0, sizeof(client_handler));
-   client_handler.stream_data = client_on_data;
-   client_handler.stream_disconnected = client_on_disconnected;
-   msocket_set_handler(child_socket, &client_handler, (void *)child_socket);
+   client_handler.stream_data = on_client_data;
+   client_handler.stream_disconnected = on_client_disconnected;
+   msocket_set_handler(child_socket, &client_handler, NULL);
 
    /*
     * IMPORTANT: For accepted server sockets, the I/O event thread must be
@@ -130,7 +126,6 @@ int main(int argc, char *argv[])
       fprintf(stderr, "[SERVER] Failed to allocate msocket_server\n");
       return 1;
    }
-   g_server = server;
 
    msocket_handler_t server_handler;
    memset(&server_handler, 0, sizeof(server_handler));

@@ -25,7 +25,7 @@ extern "C" {
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC CONSTANTS AND DATA TYPES
 //////////////////////////////////////////////////////////////////////////////
-typedef struct msocket_server_os_t msocket_server_os_t;
+struct msocket_server_os_tag;
 
 typedef struct msocket_server_tag {
    msocket_t *accept_socket;
@@ -39,7 +39,7 @@ typedef struct msocket_server_tag {
    void *handler_arg;
    msocket_handler_t handler_table;
    void (*destructor)(void *arg);
-   msocket_server_os_t *os;
+   struct msocket_server_os_tag *os;
 } msocket_server_t;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -118,12 +118,20 @@ void msocket_server_unix_start(msocket_server_t *self, const char *socket_path);
 void msocket_server_disable_cleanup(msocket_server_t *self);
 
 /**
- * Enqueues a closed connection socket or wrapper item for asynchronous deletion by the cleanup thread.
- *
- * Safe to call from within client connection callbacks (e.g. `tcp_disconnected`).
+ * Enqueues a disconnected connection socket for asynchronous deletion by the cleanup thread.
  *
  * @param self Pointer to msocket_server_t instance.
- * @param arg Pointer to connection object (passed to pDestructor).
+ * @param arg Pointer to connection object (passed to destructor).
+ */
+void msocket_server_reap_connection(msocket_server_t *self, void *arg);
+
+/**
+ * Enqueues a closed connection socket or wrapper item for asynchronous deletion by the cleanup thread.
+ *
+ * Safe to call from within client connection callbacks (e.g. `stream_disconnected`).
+ *
+ * @param self Pointer to msocket_server_t instance.
+ * @param arg Pointer to connection object (passed to destructor).
  */
 void msocket_server_cleanup_connection(msocket_server_t *self, void *arg);
 

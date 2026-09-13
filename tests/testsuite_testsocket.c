@@ -19,9 +19,10 @@ static int g_server_data_calls = 0;
 static uint32_t g_last_client_len = 0;
 static uint32_t g_last_server_len = 0;
 
-static msocket_error_t client_on_data(void *arg, const uint8_t *buf, const uint32_t len, uint32_t *parse_len, uint32_t *msg_size_hint)
+static msocket_error_t client_on_data(void *arg, void *socket, const uint8_t *buf, const uint32_t len, uint32_t *parse_len, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    (void)buf;
    (void)msg_size_hint;
    g_client_data_calls++;
@@ -30,9 +31,10 @@ static msocket_error_t client_on_data(void *arg, const uint8_t *buf, const uint3
    return MSOCKET_NO_ERROR;
 }
 
-static msocket_error_t server_on_data(void *arg, const uint8_t *buf, const uint32_t len, uint32_t *parse_len, uint32_t *msg_size_hint)
+static msocket_error_t server_on_data(void *arg, void *socket, const uint8_t *buf, const uint32_t len, uint32_t *parse_len, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    (void)buf;
    (void)msg_size_hint;
    g_server_data_calls++;

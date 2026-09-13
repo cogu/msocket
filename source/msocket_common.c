@@ -20,6 +20,7 @@
 #include <errno.h>
 #include "msocket.h"
 #include "msocket_internal.h"
+#include "msocket_server.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // PRIVATE CONSTANTS AND DATA TYPES
@@ -118,6 +119,7 @@ msocket_error_t msocket_create(msocket_t *self, uint8_t address_family)
    memset(&self->udp_info, 0, sizeof(msocket_addr_info_t));
    self->handler_table = NULL;
    self->handler_arg = NULL;
+   self->server = NULL;
    self->socket_mode = MSOCKET_MODE_NONE;
    self->state = MSOCKET_STATE_NONE;
 
@@ -189,6 +191,15 @@ void msocket_set_handler(msocket_t *self, const msocket_handler_t *handler_table
          }
       }
       self->handler_arg = handler_arg;
+   }
+}
+
+void msocket_set_server(msocket_t *self, msocket_server_t *server)
+{
+   if (self != NULL && self->os != NULL) {
+      msocket_os_mutex_lock(self->os);
+      self->server = server;
+      msocket_os_mutex_unlock(self->os);
    }
 }
 
@@ -624,7 +635,7 @@ void msocket_close(msocket_t *self)
 void msocket_common_on_connected(msocket_t *self)
 {
    if (self != NULL && self->handler_table != NULL && self->handler_table->stream_connected != NULL) {
-      self->handler_table->stream_connected(self->handler_arg, self->stream_info.addr, self->stream_info.port);
+      self->handler_table->stream_connected(self->handler_arg, (void *)self, self->stream_info.addr, self->stream_info.port);
    }
 }
 
@@ -640,7 +651,7 @@ void msocket_common_on_disconnected(msocket_t *self)
       msocket_os_mutex_unlock(self->os);
 
       if (trigger && self->handler_table != NULL && self->handler_table->stream_disconnected != NULL) {
-         self->handler_table->stream_disconnected(self->handler_arg);
+         self->handler_table->stream_disconnected(self->handler_arg, (void *)self);
       }
    }
 }
@@ -660,7 +671,7 @@ msocket_error_t msocket_common_process_stream_data(msocket_t *self)
 
       uint32_t consumed_bytes = 0u;
       uint32_t msg_size_hint = 0u;
-      msocket_error_t rc = self->handler_table->stream_data(self->handler_arg, data, cur_len, &consumed_bytes, &msg_size_hint);
+      msocket_error_t rc = self->handler_table->stream_data(self->handler_arg, (void *)self, data, cur_len, &consumed_bytes, &msg_size_hint);
       if (rc != MSOCKET_NO_ERROR) {
          msocket_os_mutex_lock(self->os);
          self->state = MSOCKET_STATE_CLOSING;
@@ -714,7 +725,7 @@ msocket_error_t msocket_common_on_data(msocket_t *self, const uint8_t *data_buf,
 void msocket_common_on_udp_msg(msocket_t *self, const char *addr, uint16_t port, const uint8_t *data_buf, uint32_t data_len)
 {
    if (self != NULL && self->handler_table != NULL && self->handler_table->datagram_msg != NULL) {
-      self->handler_table->datagram_msg(self->handler_arg, addr, port, data_buf, data_len);
+      self->handler_table->datagram_msg(self->handler_arg, (void *)self, addr, port, data_buf, data_len);
    }
 }
 
@@ -729,7 +740,7 @@ void msocket_common_on_timeout(msocket_t *self)
       msocket_os_mutex_unlock(self->os);
 
       if (trigger && self->handler_table != NULL && self->handler_table->stream_inactivity != NULL) {
-         self->handler_table->stream_inactivity(self->inactivity_ms);
+         self->handler_table->stream_inactivity(self->handler_arg, (void *)self, self->inactivity_ms);
       }
    }
 }
@@ -892,6 +903,16 @@ static void io_task(void *arg)
          }
          break;
       }
+   }
+
+   msocket_server_t *server = NULL;
+   msocket_os_mutex_lock(self->os);
+   server = self->server;
+   self->server = NULL;
+   msocket_os_mutex_unlock(self->os);
+
+   if (server != NULL) {
+      msocket_server_reap_connection(server, (void *)self);
    }
 }
 

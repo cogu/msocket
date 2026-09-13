@@ -19,12 +19,12 @@
 //////////////////////////////////////////////////////////////////////////////
 // PRIVATE FUNCTION PROTOTYPES
 //////////////////////////////////////////////////////////////////////////////
-static void client_socket_connected(void *arg, const char *addr, uint16_t port);
-static void client_socket_disconnected(void *arg);
-static msocket_error_t client_socket_data(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint);
-static void server_socket_connected(void *arg, const char *addr, uint16_t port);
-static void server_socket_disconnected(void *arg);
-static msocket_error_t server_socket_data(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint);
+static void client_socket_connected(void *arg, void *socket, const char *addr, uint16_t port);
+static void client_socket_disconnected(void *arg, void *socket);
+static msocket_error_t client_socket_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint);
+static void server_socket_connected(void *arg, void *socket, const char *addr, uint16_t port);
+static void server_socket_disconnected(void *arg, void *socket);
+static msocket_error_t server_socket_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint);
 
 //////////////////////////////////////////////////////////////////////////////
 // PRIVATE VARIABLES
@@ -136,23 +136,26 @@ uint32_t testsocket_spy_get_server_bytes_received(void)
 // PRIVATE FUNCTIONS
 //////////////////////////////////////////////////////////////////////////////
 
-static void client_socket_connected(void *arg, const char *addr, uint16_t port)
+static void client_socket_connected(void *arg, void *socket, const char *addr, uint16_t port)
 {
    (void)arg;
+   (void)socket;
    (void)addr;
    (void)port;
    m_client_connected_count++;
 }
 
-static void client_socket_disconnected(void *arg)
+static void client_socket_disconnected(void *arg, void *socket)
 {
    (void)arg;
+   (void)socket;
    m_client_disconnected_count++;
 }
 
-static msocket_error_t client_socket_data(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
+static msocket_error_t client_socket_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    (void)msg_size_hint;
    *consumed_bytes = num_bytes;
    m_client_bytes_received_total += num_bytes;
@@ -160,23 +163,26 @@ static msocket_error_t client_socket_data(void *arg, const uint8_t *data, const 
    return MSOCKET_NO_ERROR;
 }
 
-static void server_socket_connected(void *arg, const char *addr, uint16_t port)
+static void server_socket_connected(void *arg, void *socket, const char *addr, uint16_t port)
 {
    (void)arg;
+   (void)socket;
    (void)addr;
    (void)port;
    m_server_connected_count++;
 }
 
-static void server_socket_disconnected(void *arg)
+static void server_socket_disconnected(void *arg, void *socket)
 {
    (void)arg;
+   (void)socket;
    m_server_disconnected_count++;
 }
 
-static msocket_error_t server_socket_data(void *arg, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
+static msocket_error_t server_socket_data(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint)
 {
    (void)arg;
+   (void)socket;
    (void)msg_size_hint;
    *consumed_bytes = num_bytes;
    m_server_bytes_received_total += num_bytes;
