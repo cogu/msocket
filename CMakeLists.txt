@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(msocket LANGUAGES C CXX VERSION 2.0.0)
+project(msocket LANGUAGES C CXX VERSION 1.9.0)
 
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
