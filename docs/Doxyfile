@@ -1,0 +1,31 @@
+# Doxyfile for Sphinx + Breathe integration
+PROJECT_NAME           = "msocket"
+PROJECT_NUMBER         = "1.9.0"
+PROJECT_BRIEF          = "Event-driven socket library for Linux and Windows"
+
+# Input configuration
+INPUT                  = ../include
+FILE_PATTERNS          = *.h
+RECURSIVE              = NO
+OUTPUT_DIRECTORY       = _build/doxygen
+
+# Language & Parsing
+OPTIMIZE_OUTPUT_FOR_C  = YES
+JAVADOC_AUTOBRIEF      = YES
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = NO
+
+# Output formats: Only XML is needed for Breathe
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+XML_OUTPUT             = xml
+
+# Diagnostics
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+
+# Preprocessing
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES

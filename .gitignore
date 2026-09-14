@@ -20,3 +20,8 @@ compile_commands.json
 *.swp
 *~
 .DS_Store
+
+# Sphinx documentation
+/docs/make.bat
+/docs/_build/
+**/.venv/
