@@ -38,7 +38,7 @@ It allows applications to register callbacks when lifecycle events occur on a so
 
 ## Dependencies
 
-* [cogu/adt](https://github.com/cogu/adt) (v0.3.5 or later)
+* [cogu/adt](https://github.com/cogu/adt) (v0.3.7 or later)
 
 When building standalone unit tests, clone `adt` and `msocket` side by side:
 
