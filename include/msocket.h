@@ -63,12 +63,69 @@ struct msocket_tag;
 struct msocket_server_tag;
 struct msocket_os_tag;
 
+/**
+ * Event handler callback table for stream and datagram socket events.
+ */
 typedef struct msocket_handler_tag {
+   /**
+    * Callback invoked when a new incoming stream connection is accepted by a server.
+    *
+    * @param arg User context pointer registered via msocket_server_set_handler.
+    * @param srv Pointer to the listening msocket_server_t instance.
+    * @param socket Pointer to the newly accepted child socket (msocket_t*).
+    */
    void (*stream_accept)(void *arg, struct msocket_server_tag *srv, void *socket);
+
+   /**
+    * Callback invoked when an outgoing stream connection has been established.
+    *
+    * @param arg User context pointer registered via msocket_set_handler.
+    * @param socket Pointer to the connected msocket_t instance.
+    * @param addr Remote peer IP address or socket path string.
+    * @param port Remote peer TCP port (0 for UNIX sockets).
+    */
    void (*stream_connected)(void *arg, void *socket, const char *addr, uint16_t port);
+
+   /**
+    * Callback invoked when a stream connection is closed or disconnected.
+    *
+    * @param arg User context pointer registered via msocket_set_handler.
+    * @param socket Pointer to the disconnected msocket_t instance.
+    */
    void (*stream_disconnected)(void *arg, void *socket);
+
+   /**
+    * Callback invoked when stream data arrives in the receive buffer.
+    *
+    * @param arg User context pointer registered via msocket_set_handler.
+    * @param socket Pointer to the msocket_t instance receiving data.
+    * @param data Pointer to raw received byte buffer.
+    * @param num_bytes Total number of bytes available in the buffer.
+    * @param consumed_bytes Output parameter: number of bytes parsed and consumed by the handler.
+    * @param msg_size_hint Output parameter: optional hint for expected total message length.
+    * @return MSOCKET_NO_ERROR on success, or error code on protocol/parsing failure.
+    */
    msocket_error_t (*stream_data)(void *arg, void *socket, const uint8_t *data, const uint32_t num_bytes, uint32_t *consumed_bytes, uint32_t *msg_size_hint);
+
+   /**
+    * Callback periodically invoked during periods of socket inactivity.
+    *
+    * @param arg User context pointer registered via msocket_set_handler.
+    * @param socket Pointer to the idle msocket_t instance.
+    * @param elapsed_ms Milliseconds elapsed since last activity.
+    */
    void (*stream_inactivity)(void *arg, void *socket, const uint32_t elapsed_ms);
+
+   /**
+    * Callback invoked when a datagram (UDP packet) is received.
+    *
+    * @param arg User context pointer registered via msocket_set_handler.
+    * @param socket Pointer to the receiving msocket_t instance.
+    * @param addr Sender IP address string.
+    * @param port Sender UDP port.
+    * @param data Pointer to received datagram payload.
+    * @param num_bytes Length of received payload in bytes.
+    */
    void (*datagram_msg)(void *arg, void *socket, const char *addr, uint16_t port, const uint8_t *data, const uint32_t num_bytes);
 } msocket_handler_t;
 
