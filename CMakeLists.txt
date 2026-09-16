@@ -46,35 +46,37 @@ if(MSOCKET_SANITIZERS)
 endif()
 
 ### Dependency: adt
-set(ADT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../adt" CACHE PATH "Path to adt repository")
-if(EXISTS "${ADT_DIR}/CMakeLists.txt")
-    add_subdirectory("${ADT_DIR}" "${CMAKE_BINARY_DIR}/adt" EXCLUDE_FROM_ALL)
-else()
-    find_package(adt REQUIRED)
+if(NOT TARGET adt)
+    set(ADT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../adt" CACHE PATH "Path to adt repository")
+    if(EXISTS "${ADT_DIR}/CMakeLists.txt")
+        add_subdirectory("${ADT_DIR}" "${CMAKE_BINARY_DIR}/adt" EXCLUDE_FROM_ALL)
+    else()
+        find_package(adt REQUIRED)
+    endif()
 endif()
 
 ### Library: msocket
 set(MSOCKET_HEADERS
-    include/msocket.h
-    include/msocket_error.h
-    include/msocket_server.h
-    include/testsocket.h
-    include/testsocket_spy.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/msocket.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/msocket_error.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/msocket_server.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/testsocket.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/testsocket_spy.h
 )
 
 set(MSOCKET_SOURCES
-    source/msocket_common.c
-    source/msocket_error.c
-    source/msocket_server.c
-    source/testsocket.c
-    source/testsocket_spy.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_common.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_error.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_server.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/testsocket.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/testsocket_spy.c
 )
 
 if(WIN32)
-    list(APPEND MSOCKET_SOURCES source/msocket_windows.c)
+    list(APPEND MSOCKET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_windows.c)
     set(PLATFORM_LIBS ws2_32)
 else()
-    list(APPEND MSOCKET_SOURCES source/msocket_posix.c)
+    list(APPEND MSOCKET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_posix.c)
     find_package(Threads REQUIRED)
     set(PLATFORM_LIBS Threads::Threads)
 endif()
@@ -106,14 +108,16 @@ target_include_directories(msocket_adapter
 )
 
 ### Tests
-if(UNIT_TEST)
-    enable_testing()
-    add_subdirectory(tests)
-endif()
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    if(UNIT_TEST)
+        enable_testing()
+        add_subdirectory(tests)
+    endif()
 
-### Examples
-option(BUILD_EXAMPLES "Build example programs" OFF)
-if(BUILD_EXAMPLES)
-    add_subdirectory(examples)
+    ### Examples
+    option(BUILD_EXAMPLES "Build example programs" OFF)
+    if(BUILD_EXAMPLES)
+        add_subdirectory(examples)
+    endif()
 endif()
 
