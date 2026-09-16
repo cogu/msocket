@@ -250,7 +250,7 @@ static void accept_task(void *arg)
       if (child == NULL) {
          break;
       }
-      if (self->destructor != NULL) {
+      if (self->destructor == msocket_vdelete) {
          msocket_set_server(child, self);
       }
       if (self->handler_table.stream_accept != NULL) {
