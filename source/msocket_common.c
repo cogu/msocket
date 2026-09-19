@@ -343,14 +343,24 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
 
    msocket_os_mutex_lock(self->os);
    self->state = MSOCKET_STATE_ACCEPTING;
+   os_socket_t accept_fd = self->os->tcp_sockfd;
    msocket_os_mutex_unlock(self->os);
+
+   if (OS_SOCKET_IS_INVALID(accept_fd)) {
+      if (placement_new) {
+         msocket_destroy(child);
+      } else {
+         msocket_delete(child);
+      }
+      return NULL;
+   }
 
    os_socket_t sockfd;
    int one = 1;
    msocket_error_t result = MSOCKET_NO_ERROR;
 
    if (self->address_family == MSOCKET_ADDR_UNIX) {
-      sockfd = accept(self->os->tcp_sockfd, NULL, NULL);
+      sockfd = accept(accept_fd, NULL, NULL);
       if (OS_SOCKET_IS_INVALID(sockfd)) {
          result = MSOCKET_SOCKET_ERROR;
       } else {
@@ -362,7 +372,7 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
       struct sockaddr_in6 cli_addr6;
       OS_SOCK_LEN_T cli_len = (OS_SOCK_LEN_T)sizeof(cli_addr6);
       memset(&cli_addr6, 0, sizeof(cli_addr6));
-      sockfd = accept(self->os->tcp_sockfd, (struct sockaddr *)&cli_addr6, &cli_len);
+      sockfd = accept(accept_fd, (struct sockaddr *)&cli_addr6, &cli_len);
       if (OS_SOCKET_IS_INVALID(sockfd)) {
          result = MSOCKET_SOCKET_ERROR;
       } else if (inet_ntop(AF_INET6, &(cli_addr6.sin6_addr), child->stream_info.addr, MSOCKET_ADDRSTRLEN) == NULL) {
@@ -377,7 +387,7 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
       struct sockaddr_in cli_addr;
       OS_SOCK_LEN_T cli_len = (OS_SOCK_LEN_T)sizeof(cli_addr);
       memset(&cli_addr, 0, sizeof(cli_addr));
-      sockfd = accept(self->os->tcp_sockfd, (struct sockaddr *)&cli_addr, &cli_len);
+      sockfd = accept(accept_fd, (struct sockaddr *)&cli_addr, &cli_len);
       if (OS_SOCKET_IS_INVALID(sockfd)) {
          result = MSOCKET_SOCKET_ERROR;
       } else if (inet_ntop(AF_INET, &(cli_addr.sin_addr), child->stream_info.addr, MSOCKET_ADDRSTRLEN) == NULL) {
@@ -391,7 +401,9 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
    }
 
    msocket_os_mutex_lock(self->os);
-   self->state = MSOCKET_STATE_LISTENING;
+   if (self->state == MSOCKET_STATE_ACCEPTING) {
+      self->state = MSOCKET_STATE_LISTENING;
+   }
    msocket_os_mutex_unlock(self->os);
 
    if (result != MSOCKET_NO_ERROR) {
@@ -416,14 +428,17 @@ static msocket_error_t msocket_start_io_thread(msocket_t *self)
    if (self == NULL || self->os == NULL) {
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
+   msocket_os_mutex_lock(self->os);
    if (!self->os->thread_running) {
       self->os->thread_running = true;
       self->os->io_thread = msocket_thread_create(io_task, self);
       if (self->os->io_thread == NULL) {
          self->os->thread_running = false;
+         msocket_os_mutex_unlock(self->os);
          return MSOCKET_MEM_ERROR;
       }
    }
+   msocket_os_mutex_unlock(self->os);
    return MSOCKET_NO_ERROR;
 }
 
@@ -586,23 +601,29 @@ void msocket_close(msocket_t *self)
       return;
    }
 
+   msocket_os_mutex_lock(self->os);
    /* Prevent joining I/O thread from within itself */
    if (self->os->thread_running && msocket_thread_is_current(self->os->io_thread)) {
+      msocket_os_mutex_unlock(self->os);
       return;
    }
 
-   msocket_os_mutex_lock(self->os);
    self->state = MSOCKET_STATE_CLOSING;
    if (OS_SOCKET_IS_VALID(self->os->tcp_sockfd)) {
       OS_SOCKET_SHUTDOWN(self->os->tcp_sockfd);
    }
-   msocket_os_mutex_unlock(self->os);
 
+   msocket_thread_t *io_thread = NULL;
    if (self->os->thread_running) {
-      msocket_thread_join(self->os->io_thread);
-      msocket_thread_delete(self->os->io_thread);
+      io_thread = self->os->io_thread;
       self->os->io_thread = NULL;
       self->os->thread_running = false;
+   }
+   msocket_os_mutex_unlock(self->os);
+
+   if (io_thread != NULL) {
+      msocket_thread_join(io_thread);
+      msocket_thread_delete(io_thread);
    }
 
    msocket_os_mutex_lock(self->os);
