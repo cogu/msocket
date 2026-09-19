@@ -18,6 +18,7 @@
 
 static msocket_sem_t *m_sem_accepted = NULL;
 static msocket_sem_t *m_sem_cleaned_up = NULL;
+static msocket_sem_t *m_sem_disconnected = NULL;
 static int m_cleanup_count = 0;
 static msocket_t *m_accepted_socket = NULL;
 
@@ -166,6 +167,13 @@ static void test_msocket_server_auto_reap(CuTest *tc)
    msocket_sem_delete(m_sem_cleaned_up);
 }
 
+static void on_child_disconnected_default(void *arg, void *socket)
+{
+   (void)arg;
+   (void)socket;
+   msocket_sem_post(m_sem_disconnected);
+}
+
 static void on_server_accept_default(void *arg, msocket_server_t *srv, void *socket)
 {
    (void)arg;
@@ -174,6 +182,7 @@ static void on_server_accept_default(void *arg, msocket_server_t *srv, void *soc
    if (child != NULL) {
       msocket_handler_t child_handler;
       memset(&child_handler, 0, sizeof(child_handler));
+      child_handler.stream_disconnected = on_child_disconnected_default;
       msocket_set_handler(child, &child_handler, NULL);
       msocket_start_io(child);
       msocket_sem_post(m_sem_accepted);
@@ -183,6 +192,7 @@ static void on_server_accept_default(void *arg, msocket_server_t *srv, void *soc
 static void test_msocket_server_default_auto_reap(CuTest *tc)
 {
    m_sem_accepted = msocket_sem_new(0u);
+   m_sem_disconnected = msocket_sem_new(0u);
 
    /* Server with default destructor (msocket_vdelete) automatically attaches accepted sockets */
    msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, NULL);
@@ -218,9 +228,19 @@ static void test_msocket_server_default_auto_reap(CuTest *tc)
    msocket_close(cli);
    msocket_delete(cli);
 
-   msocket_sleep_ms(50u);
+   /* Wait for child socket to detect disconnection */
+   attempts = 0;
+   while (msocket_sem_test(m_sem_disconnected) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+
+   /* Give server cleanup queue a moment to process the reaped socket */
+   msocket_sleep_ms(20u);
+
    msocket_server_delete(srv);
    msocket_sem_delete(m_sem_accepted);
+   msocket_sem_delete(m_sem_disconnected);
 }
 
 static void on_custom_conn_delete(void *arg)
@@ -325,6 +345,7 @@ static void on_child_disconnected_cleanup(void *arg, void *socket)
    msocket_t *child = (msocket_t *)socket;
    if (srv != NULL && child != NULL) {
       msocket_server_cleanup_connection(srv, child);
+      msocket_sem_post(m_sem_disconnected);
    }
 }
 
@@ -345,6 +366,7 @@ static void on_server_accept_manual_default(void *arg, msocket_server_t *srv, vo
 static void test_msocket_server_manual_cleanup_default(CuTest *tc)
 {
    m_sem_accepted = msocket_sem_new(0u);
+   m_sem_disconnected = msocket_sem_new(0u);
 
    /* Server with default destructor */
    msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, NULL);
@@ -381,9 +403,26 @@ static void test_msocket_server_manual_cleanup_default(CuTest *tc)
    msocket_close(cli);
    msocket_delete(cli);
 
-   msocket_sleep_ms(50u);
+   /* Wait for disconnect callback to execute and enqueue cleanup */
+   attempts = 0;
+   while (msocket_sem_test(m_sem_disconnected) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+
+   /* Give cleanup thread a brief moment to finish destruction */
+   msocket_sleep_ms(20u);
+
    msocket_server_delete(srv);
    msocket_sem_delete(m_sem_accepted);
+   msocket_sem_delete(m_sem_disconnected);
+}
+
+static void on_disabled_client_disconnected(void *arg, void *socket)
+{
+   (void)arg;
+   (void)socket;
+   msocket_sem_post(m_sem_disconnected);
 }
 
 static void on_server_accept_disabled(void *arg, msocket_server_t *srv, void *socket)
@@ -395,6 +434,7 @@ static void on_server_accept_disabled(void *arg, msocket_server_t *srv, void *so
       m_accepted_socket = child;
       msocket_handler_t child_handler;
       memset(&child_handler, 0, sizeof(child_handler));
+      child_handler.stream_disconnected = on_disabled_client_disconnected;
       msocket_set_handler(child, &child_handler, NULL);
       msocket_start_io(child);
       msocket_sem_post(m_sem_accepted);
@@ -404,6 +444,7 @@ static void on_server_accept_disabled(void *arg, msocket_server_t *srv, void *so
 static void test_msocket_server_disable_cleanup(CuTest *tc)
 {
    m_sem_accepted = msocket_sem_new(0u);
+   m_sem_disconnected = msocket_sem_new(0u);
    m_accepted_socket = NULL;
 
    msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, NULL);
@@ -444,13 +485,19 @@ static void test_msocket_server_disable_cleanup(CuTest *tc)
    msocket_close(cli);
    msocket_delete(cli);
 
-   msocket_sleep_ms(30u);
+   /* Wait for disconnect event on accepted socket before manual deletion */
+   attempts = 0;
+   while (msocket_sem_test(m_sem_disconnected) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
 
    /* Application manually manages child socket lifecycle */
    msocket_delete(m_accepted_socket);
 
    msocket_server_delete(srv);
    msocket_sem_delete(m_sem_accepted);
+   msocket_sem_delete(m_sem_disconnected);
 }
 
 CuSuite *testsuite_msocket_server(void)
