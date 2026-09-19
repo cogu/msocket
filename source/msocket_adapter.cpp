@@ -67,6 +67,7 @@ namespace
          auto child_socket = reinterpret_cast<msocket_t*>(socket);
          if ((listener != nullptr) && (child_socket != nullptr))
          {
+            msocket_set_server(child_socket, nullptr);
             auto accepted = std::make_unique<msocket::TcpSocket>(child_socket, true);
             listener->on_connection_accepted(std::move(accepted));
          }
@@ -181,14 +182,11 @@ namespace msocket
    {
       if (m_socket != nullptr)
       {
+         msocket_close(m_socket);
          TcpSocket::set_listener(nullptr);
          if (m_owns_socket)
          {
             msocket_delete(m_socket);
-         }
-         else
-         {
-            msocket_close(m_socket);
          }
          m_socket = nullptr;
       }

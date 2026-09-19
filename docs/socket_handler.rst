@@ -68,8 +68,12 @@ Invoked on the server when a remote client initiates a new connection.
 **Implementation Contract:** Configure the child socket before starting I/O:
 
 1. Attach per-client callbacks and context: ``msocket_set_handler(child, &client_handler, client_ctx);``
-2. Bind to server for automatic lifecycle cleanup: ``msocket_set_server(child, srv);``
-3. Start background I/O: ``msocket_start_io(child);``
+2. Start background I/O: ``msocket_start_io(child);``
+
+*Connection Lifecycle Cleanup:*
+
+* Under **Default Auto-Reap Mode** (server created with ``NULL`` or :cpp:func:`msocket_vdelete`), the server accept task automatically associates the child socket for background cleanup upon disconnect. Manual binding is not required.
+* Under **Custom Wrapper Mode** (server created with a custom destructor), wrap the socket in your application connection object, listen for ``stream_disconnected``, and call :cpp:func:`msocket_server_cleanup_connection` (e.g. ``msocket_server_cleanup_connection(srv, wrapper)``).
 
 stream_connected
 ~~~~~~~~~~~~~~~~

@@ -16,27 +16,34 @@
 
 #define SERVER_TEST_PORT 19878u
 
-static msocket_sem_t *g_sem_accepted = NULL;
-static msocket_sem_t *g_sem_cleaned_up = NULL;
-static int g_cleanup_count = 0;
+static msocket_sem_t *m_sem_accepted = NULL;
+static msocket_sem_t *m_sem_cleaned_up = NULL;
+static int m_cleanup_count = 0;
+static msocket_t *m_accepted_socket = NULL;
 
-static void custom_destructor(void *arg)
+typedef struct custom_conn_tag {
+   msocket_t *sock;
+   msocket_server_t *srv;
+   int custom_id;
+} custom_conn_t;
+
+static void on_custom_destructor(void *arg)
 {
    msocket_t *sock = (msocket_t *)arg;
    if (sock != NULL) {
       msocket_delete(sock);
-      g_cleanup_count++;
-      msocket_sem_post(g_sem_cleaned_up);
+      m_cleanup_count++;
+      msocket_sem_post(m_sem_cleaned_up);
    }
 }
 
-static void server_on_accept(void *arg, msocket_server_t *srv, void *socket)
+static void on_server_accept_cleanup(void *arg, msocket_server_t *srv, void *socket)
 {
    (void)arg;
    (void)srv;
    msocket_t *child = (msocket_t *)socket;
    if (child != NULL) {
-      msocket_sem_post(g_sem_accepted);
+      msocket_sem_post(m_sem_accepted);
       /* Queue for asynchronous destruction */
       msocket_server_cleanup_connection(srv, child);
    }
@@ -44,16 +51,16 @@ static void server_on_accept(void *arg, msocket_server_t *srv, void *socket)
 
 static void test_msocket_server_cleanup(CuTest *tc)
 {
-   g_sem_accepted = msocket_sem_new(0u);
-   g_sem_cleaned_up = msocket_sem_new(0u);
-   g_cleanup_count = 0;
+   m_sem_accepted = msocket_sem_new(0u);
+   m_sem_cleaned_up = msocket_sem_new(0u);
+   m_cleanup_count = 0;
 
-   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, custom_destructor);
+   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, on_custom_destructor);
    CuAssertPtrNotNull(tc, srv);
 
    msocket_handler_t handler;
    memset(&handler, 0, sizeof(handler));
-   handler.stream_accept = server_on_accept;
+   handler.stream_accept = on_server_accept_cleanup;
    msocket_server_set_handler(srv, &handler, NULL);
 
    msocket_server_start(srv, NULL, 0u, SERVER_TEST_PORT);
@@ -71,28 +78,28 @@ static void test_msocket_server_cleanup(CuTest *tc)
 
    /* Wait for server accept */
    int attempts = 0;
-   while (msocket_sem_test(g_sem_accepted) <= 0 && attempts++ < 50) {
+   while (msocket_sem_test(m_sem_accepted) <= 0 && attempts++ < 50) {
       msocket_sleep_ms(20u);
    }
    CuAssertTrue(tc, attempts < 50);
 
    /* Wait for asynchronous cleanup queue to run destructor */
    attempts = 0;
-   while (msocket_sem_test(g_sem_cleaned_up) <= 0 && attempts++ < 50) {
+   while (msocket_sem_test(m_sem_cleaned_up) <= 0 && attempts++ < 50) {
       msocket_sleep_ms(20u);
    }
    CuAssertTrue(tc, attempts < 50);
-   CuAssertIntEquals(tc, 1, g_cleanup_count);
+   CuAssertIntEquals(tc, 1, m_cleanup_count);
 
    msocket_close(cli);
    msocket_delete(cli);
    msocket_server_delete(srv);
 
-   msocket_sem_delete(g_sem_accepted);
-   msocket_sem_delete(g_sem_cleaned_up);
+   msocket_sem_delete(m_sem_accepted);
+   msocket_sem_delete(m_sem_cleaned_up);
 }
 
-static void server_on_accept_auto(void *arg, msocket_server_t *srv, void *socket)
+static void on_server_accept_auto(void *arg, msocket_server_t *srv, void *socket)
 {
    (void)arg;
    msocket_t *child = (msocket_t *)socket;
@@ -102,22 +109,22 @@ static void server_on_accept_auto(void *arg, msocket_server_t *srv, void *socket
       memset(&child_handler, 0, sizeof(child_handler));
       msocket_set_handler(child, &child_handler, NULL);
       msocket_start_io(child);
-      msocket_sem_post(g_sem_accepted);
+      msocket_sem_post(m_sem_accepted);
    }
 }
 
 static void test_msocket_server_auto_reap(CuTest *tc)
 {
-   g_sem_accepted = msocket_sem_new(0u);
-   g_sem_cleaned_up = msocket_sem_new(0u);
-   g_cleanup_count = 0;
+   m_sem_accepted = msocket_sem_new(0u);
+   m_sem_cleaned_up = msocket_sem_new(0u);
+   m_cleanup_count = 0;
 
-   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, custom_destructor);
+   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, on_custom_destructor);
    CuAssertPtrNotNull(tc, srv);
 
    msocket_handler_t handler;
    memset(&handler, 0, sizeof(handler));
-   handler.stream_accept = server_on_accept_auto;
+   handler.stream_accept = on_server_accept_auto;
    msocket_server_set_handler(srv, &handler, NULL);
 
    msocket_server_start(srv, NULL, 0u, SERVER_TEST_PORT + 1u);
@@ -136,7 +143,7 @@ static void test_msocket_server_auto_reap(CuTest *tc)
 
    /* Wait for server accept */
    int attempts = 0;
-   while (msocket_sem_test(g_sem_accepted) <= 0 && attempts++ < 50) {
+   while (msocket_sem_test(m_sem_accepted) <= 0 && attempts++ < 50) {
       msocket_sleep_ms(20u);
    }
    CuAssertTrue(tc, attempts < 50);
@@ -147,19 +154,19 @@ static void test_msocket_server_auto_reap(CuTest *tc)
 
    /* Wait for automatic cleanup queue to run destructor */
    attempts = 0;
-   while (msocket_sem_test(g_sem_cleaned_up) <= 0 && attempts++ < 50) {
+   while (msocket_sem_test(m_sem_cleaned_up) <= 0 && attempts++ < 50) {
       msocket_sleep_ms(20u);
    }
    CuAssertTrue(tc, attempts < 50);
-   CuAssertIntEquals(tc, 1, g_cleanup_count);
+   CuAssertIntEquals(tc, 1, m_cleanup_count);
 
    msocket_server_delete(srv);
 
-   msocket_sem_delete(g_sem_accepted);
-   msocket_sem_delete(g_sem_cleaned_up);
+   msocket_sem_delete(m_sem_accepted);
+   msocket_sem_delete(m_sem_cleaned_up);
 }
 
-static void server_on_accept_default(void *arg, msocket_server_t *srv, void *socket)
+static void on_server_accept_default(void *arg, msocket_server_t *srv, void *socket)
 {
    (void)arg;
    (void)srv;
@@ -169,13 +176,13 @@ static void server_on_accept_default(void *arg, msocket_server_t *srv, void *soc
       memset(&child_handler, 0, sizeof(child_handler));
       msocket_set_handler(child, &child_handler, NULL);
       msocket_start_io(child);
-      msocket_sem_post(g_sem_accepted);
+      msocket_sem_post(m_sem_accepted);
    }
 }
 
 static void test_msocket_server_default_auto_reap(CuTest *tc)
 {
-   g_sem_accepted = msocket_sem_new(0u);
+   m_sem_accepted = msocket_sem_new(0u);
 
    /* Server with default destructor (msocket_vdelete) automatically attaches accepted sockets */
    msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, NULL);
@@ -183,7 +190,7 @@ static void test_msocket_server_default_auto_reap(CuTest *tc)
 
    msocket_handler_t handler;
    memset(&handler, 0, sizeof(handler));
-   handler.stream_accept = server_on_accept_default;
+   handler.stream_accept = on_server_accept_default;
    msocket_server_set_handler(srv, &handler, NULL);
 
    msocket_server_start(srv, NULL, 0u, SERVER_TEST_PORT + 2u);
@@ -202,7 +209,7 @@ static void test_msocket_server_default_auto_reap(CuTest *tc)
 
    /* Wait for server accept */
    int attempts = 0;
-   while (msocket_sem_test(g_sem_accepted) <= 0 && attempts++ < 50) {
+   while (msocket_sem_test(m_sem_accepted) <= 0 && attempts++ < 50) {
       msocket_sleep_ms(20u);
    }
    CuAssertTrue(tc, attempts < 50);
@@ -213,7 +220,237 @@ static void test_msocket_server_default_auto_reap(CuTest *tc)
 
    msocket_sleep_ms(50u);
    msocket_server_delete(srv);
-   msocket_sem_delete(g_sem_accepted);
+   msocket_sem_delete(m_sem_accepted);
+}
+
+static void on_custom_conn_delete(void *arg)
+{
+   custom_conn_t *conn = (custom_conn_t *)arg;
+   if (conn != NULL) {
+      if (conn->sock != NULL) {
+         msocket_delete(conn->sock);
+         conn->sock = NULL;
+      }
+      free(conn);
+      m_cleanup_count++;
+      msocket_sem_post(m_sem_cleaned_up);
+   }
+}
+
+static void on_wrapper_client_disconnected(void *arg, void *socket)
+{
+   (void)socket;
+   custom_conn_t *conn = (custom_conn_t *)arg;
+   if (conn != NULL && conn->srv != NULL) {
+      msocket_server_cleanup_connection(conn->srv, conn);
+   }
+}
+
+static void on_server_accept_custom_wrapper(void *arg, msocket_server_t *srv, void *socket)
+{
+   (void)arg;
+   msocket_t *child = (msocket_t *)socket;
+   if (child != NULL) {
+      custom_conn_t *conn = (custom_conn_t *)malloc(sizeof(custom_conn_t));
+      if (conn != NULL) {
+         conn->sock = child;
+         conn->srv = srv;
+         conn->custom_id = 42;
+         msocket_handler_t child_handler;
+         memset(&child_handler, 0, sizeof(child_handler));
+         child_handler.stream_disconnected = on_wrapper_client_disconnected;
+         msocket_set_handler(child, &child_handler, (void *)conn);
+         msocket_start_io(child);
+         msocket_sem_post(m_sem_accepted);
+      }
+   }
+}
+
+static void test_msocket_server_custom_wrapper(CuTest *tc)
+{
+   m_sem_accepted = msocket_sem_new(0u);
+   m_sem_cleaned_up = msocket_sem_new(0u);
+   m_cleanup_count = 0;
+
+   /* Server with custom wrapper destructor (e.g. c-apx json_server_connection_vdelete pattern) */
+   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, on_custom_conn_delete);
+   CuAssertPtrNotNull(tc, srv);
+
+   msocket_handler_t handler;
+   memset(&handler, 0, sizeof(handler));
+   handler.stream_accept = on_server_accept_custom_wrapper;
+   msocket_server_set_handler(srv, &handler, NULL);
+
+   msocket_server_start(srv, NULL, 0u, SERVER_TEST_PORT + 3u);
+
+   /* Connect client */
+   msocket_t *cli = msocket_new(MSOCKET_ADDR_INET);
+   CuAssertPtrNotNull(tc, cli);
+
+   msocket_handler_t cli_handler;
+   memset(&cli_handler, 0, sizeof(cli_handler));
+   msocket_set_handler(cli, &cli_handler, NULL);
+
+   msocket_error_t rc = msocket_connect(cli, "127.0.0.1", SERVER_TEST_PORT + 3u);
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+   msocket_start_io(cli);
+
+   /* Wait for server accept */
+   int attempts = 0;
+   while (msocket_sem_test(m_sem_accepted) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+
+   /* Disconnect client - wrapper disconnect callback invokes msocket_server_cleanup_connection */
+   msocket_close(cli);
+   msocket_delete(cli);
+
+   /* Wait for custom destructor to execute */
+   attempts = 0;
+   while (msocket_sem_test(m_sem_cleaned_up) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+   CuAssertIntEquals(tc, 1, m_cleanup_count);
+
+   msocket_server_delete(srv);
+   msocket_sem_delete(m_sem_accepted);
+   msocket_sem_delete(m_sem_cleaned_up);
+}
+
+static void on_child_disconnected_cleanup(void *arg, void *socket)
+{
+   msocket_server_t *srv = (msocket_server_t *)arg;
+   msocket_t *child = (msocket_t *)socket;
+   if (srv != NULL && child != NULL) {
+      msocket_server_cleanup_connection(srv, child);
+   }
+}
+
+static void on_server_accept_manual_default(void *arg, msocket_server_t *srv, void *socket)
+{
+   (void)arg;
+   msocket_t *child = (msocket_t *)socket;
+   if (child != NULL) {
+      msocket_handler_t child_handler;
+      memset(&child_handler, 0, sizeof(child_handler));
+      child_handler.stream_disconnected = on_child_disconnected_cleanup;
+      msocket_set_handler(child, &child_handler, (void *)srv);
+      msocket_start_io(child);
+      msocket_sem_post(m_sem_accepted);
+   }
+}
+
+static void test_msocket_server_manual_cleanup_default(CuTest *tc)
+{
+   m_sem_accepted = msocket_sem_new(0u);
+
+   /* Server with default destructor */
+   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, NULL);
+   CuAssertPtrNotNull(tc, srv);
+
+   msocket_handler_t handler;
+   memset(&handler, 0, sizeof(handler));
+   handler.stream_accept = on_server_accept_manual_default;
+   msocket_server_set_handler(srv, &handler, NULL);
+
+   msocket_server_start(srv, NULL, 0u, SERVER_TEST_PORT + 4u);
+
+   /* Connect client */
+   msocket_t *cli = msocket_new(MSOCKET_ADDR_INET);
+   CuAssertPtrNotNull(tc, cli);
+
+   msocket_handler_t cli_handler;
+   memset(&cli_handler, 0, sizeof(cli_handler));
+   msocket_set_handler(cli, &cli_handler, NULL);
+
+   msocket_error_t rc = msocket_connect(cli, "127.0.0.1", SERVER_TEST_PORT + 4u);
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+   msocket_start_io(cli);
+
+   /* Wait for server accept */
+   int attempts = 0;
+   while (msocket_sem_test(m_sem_accepted) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+
+   /* Disconnect client - on_child_disconnected_cleanup calls msocket_server_cleanup_connection.
+    * It unsets child->server, so when io_task finishes it will not double reap. */
+   msocket_close(cli);
+   msocket_delete(cli);
+
+   msocket_sleep_ms(50u);
+   msocket_server_delete(srv);
+   msocket_sem_delete(m_sem_accepted);
+}
+
+static void on_server_accept_disabled(void *arg, msocket_server_t *srv, void *socket)
+{
+   (void)arg;
+   (void)srv;
+   msocket_t *child = (msocket_t *)socket;
+   if (child != NULL) {
+      m_accepted_socket = child;
+      msocket_handler_t child_handler;
+      memset(&child_handler, 0, sizeof(child_handler));
+      msocket_set_handler(child, &child_handler, NULL);
+      msocket_start_io(child);
+      msocket_sem_post(m_sem_accepted);
+   }
+}
+
+static void test_msocket_server_disable_cleanup(CuTest *tc)
+{
+   m_sem_accepted = msocket_sem_new(0u);
+   m_accepted_socket = NULL;
+
+   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, NULL);
+   CuAssertPtrNotNull(tc, srv);
+
+   /* Disable automatic cleanup (as in apx_socket_extension) */
+   msocket_server_disable_cleanup(srv);
+   CuAssertPtrEquals(tc, NULL, srv->destructor);
+
+   msocket_handler_t handler;
+   memset(&handler, 0, sizeof(handler));
+   handler.stream_accept = on_server_accept_disabled;
+   msocket_server_set_handler(srv, &handler, NULL);
+
+   msocket_server_start(srv, NULL, 0u, SERVER_TEST_PORT + 5u);
+
+   /* Connect client */
+   msocket_t *cli = msocket_new(MSOCKET_ADDR_INET);
+   CuAssertPtrNotNull(tc, cli);
+
+   msocket_handler_t cli_handler;
+   memset(&cli_handler, 0, sizeof(cli_handler));
+   msocket_set_handler(cli, &cli_handler, NULL);
+
+   msocket_error_t rc = msocket_connect(cli, "127.0.0.1", SERVER_TEST_PORT + 5u);
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+   msocket_start_io(cli);
+
+   /* Wait for server accept */
+   int attempts = 0;
+   while (msocket_sem_test(m_sem_accepted) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+   CuAssertPtrNotNull(tc, m_accepted_socket);
+
+   /* Disconnect client */
+   msocket_close(cli);
+   msocket_delete(cli);
+
+   msocket_sleep_ms(30u);
+
+   /* Application manually manages child socket lifecycle */
+   msocket_delete(m_accepted_socket);
+
+   msocket_server_delete(srv);
+   msocket_sem_delete(m_sem_accepted);
 }
 
 CuSuite *testsuite_msocket_server(void)
@@ -222,5 +459,8 @@ CuSuite *testsuite_msocket_server(void)
    SUITE_ADD_TEST(suite, test_msocket_server_cleanup);
    SUITE_ADD_TEST(suite, test_msocket_server_auto_reap);
    SUITE_ADD_TEST(suite, test_msocket_server_default_auto_reap);
+   SUITE_ADD_TEST(suite, test_msocket_server_custom_wrapper);
+   SUITE_ADD_TEST(suite, test_msocket_server_manual_cleanup_default);
+   SUITE_ADD_TEST(suite, test_msocket_server_disable_cleanup);
    return suite;
 }

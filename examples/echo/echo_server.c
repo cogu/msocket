@@ -65,6 +65,11 @@ static void on_client_disconnected(void *arg, void *socket)
 {
    (void)arg;
    (void)socket;
+   /*
+    * Note: In default auto-reap mode, the disconnected child socket is automatically
+    * reaped and deleted by the server's background cleanup thread. Do not call
+    * msocket_delete here.
+    */
    printf("[SERVER] Client disconnected\n");
 }
 
@@ -121,7 +126,12 @@ int main(int argc, char *argv[])
 
    printf("[SERVER] Starting Echo Server on port %u (press Ctrl+C to exit)...\n", port);
 
-   msocket_server_t *server = msocket_server_new(MSOCKET_ADDR_INET, msocket_vdelete);
+   /*
+    * Initialize server with default auto-reap mode (NULL defaults to msocket_vdelete).
+    * In this mode, accepted child sockets are automatically bound to the server and
+    * reaped by the server cleanup thread upon disconnection.
+    */
+   msocket_server_t *server = msocket_server_new(MSOCKET_ADDR_INET, NULL);
    if (server == NULL) {
       fprintf(stderr, "[SERVER] Failed to allocate msocket_server\n");
       return 1;

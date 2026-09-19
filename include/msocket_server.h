@@ -49,6 +49,14 @@ typedef struct msocket_server_tag {
 /**
  * Initializes an existing msocket_server instance.
  *
+ * The server supports two connection cleanup modes:
+ * - Default Auto-Reap Mode (destructor == NULL or msocket_vdelete): Accepted child sockets
+ *   are automatically cleaned up by the server. When disconnected, the socket's background I/O
+ *   thread automatically queues the raw socket for deletion via msocket_vdelete.
+ * - Custom Wrapper Mode (destructor != msocket_vdelete): Accepted child sockets are NOT
+ *   automatically cleaned up by the server. The application should wrap the child socket in a custom structure
+ *   and invoke msocket_server_cleanup_connection(self, wrapper) from the stream_disconnected callback.
+ *
  * @param self Pointer to msocket_server_t instance.
  * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, or MSOCKET_ADDR_UNIX).
  * @param destructor Destructor function for cleanup items, or NULL to use default msocket_vdelete.
@@ -64,6 +72,9 @@ void msocket_server_destroy(msocket_server_t *self);
 
 /**
  * Dynamically allocates and initializes a new msocket_server instance.
+ *
+ * Supports default auto-reap mode (destructor == NULL or msocket_vdelete) or custom
+ * wrapper mode (custom destructor function).
  *
  * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, or MSOCKET_ADDR_UNIX).
  * @param destructor Destructor function for cleanup items, or NULL to use default msocket_vdelete.
@@ -81,13 +92,13 @@ void msocket_server_delete(msocket_server_t *self);
 /**
  * Registers the server handler table.
  *
- * The `handler->tcp_accept` callback is called whenever a new client connection is accepted:
- *   void on_accept(void *arg, msocket_server_t *srv, msocket_t *child_socket)
+ * The `handler->stream_accept` callback is called whenever a new client connection is accepted:
+ *   void on_accept(void *arg, msocket_server_t *srv, void *socket)
  * Inside that callback, the application should attach per-connection handlers to `child_socket`
  * via msocket_set_handler(), and then call msocket_start_io(child_socket).
  *
  * @param self Pointer to msocket_server_t instance.
- * @param handler Pointer to handler table containing tcp_accept callback.
+ * @param handler Pointer to handler table containing stream_accept callback.
  * @param handler_arg User context pointer passed to callback functions.
  */
 void msocket_server_set_handler(msocket_server_t *self, const msocket_handler_t *handler, void *handler_arg);
@@ -118,20 +129,22 @@ void msocket_server_unix_start(msocket_server_t *self, const char *socket_path);
 void msocket_server_disable_cleanup(msocket_server_t *self);
 
 /**
- * Enqueues a disconnected connection socket for asynchronous deletion by the cleanup thread.
+ * Enqueues an item directly for asynchronous deletion by the cleanup thread.
  *
  * @param self Pointer to msocket_server_t instance.
- * @param arg Pointer to connection object (passed to destructor).
+ * @param arg Pointer to object passed to destructor.
  */
 void msocket_server_reap_connection(msocket_server_t *self, void *arg);
 
 /**
- * Enqueues a closed connection socket or wrapper item for asynchronous deletion by the cleanup thread.
+ * Safely enqueues a closed connection socket or wrapper item for asynchronous deletion.
  *
  * Safe to call from within client connection callbacks (e.g. `stream_disconnected`).
+ * In default auto-reap mode (destructor == msocket_vdelete), this safely detaches the socket
+ * from the server before enqueuing to prevent double-reaping upon I/O thread termination.
  *
  * @param self Pointer to msocket_server_t instance.
- * @param arg Pointer to connection object (passed to destructor).
+ * @param arg Pointer to connection object or wrapper (passed to destructor).
  */
 void msocket_server_cleanup_connection(msocket_server_t *self, void *arg);
 

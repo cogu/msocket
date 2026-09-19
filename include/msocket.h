@@ -242,6 +242,10 @@ void msocket_set_handler(msocket_t *self, const msocket_handler_t *handler_table
 /**
  * Associates a parent msocket_server instance with this socket for automatic reaping upon disconnection.
  *
+ * NOTE: For servers created with default destructor (NULL or msocket_vdelete), accepted child
+ * sockets are associated with the server automatically by the accept task. Manual association
+ * is only needed when explicitly opting into automatic raw socket reaping under custom setups.
+ *
  * @param self Pointer to msocket_t instance.
  * @param server Pointer to parent msocket_server instance, or NULL to detach.
  */
