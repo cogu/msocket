@@ -17,6 +17,10 @@ extern "C" {
 #include "msocket_adapter.h"
 #include <string>
 #include <vector>
+#include <chrono>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 namespace
 {
@@ -77,6 +81,23 @@ namespace
          received_msg.assign(reinterpret_cast<const char*>(data), data_size);
          parse_len = data_size;
          return 0;
+      }
+   };
+
+   class MockServerListener : public msocket::ServerListener
+   {
+   public:
+      std::mutex m_mutex;
+      std::condition_variable m_cv;
+      int accept_calls{ 0 };
+      std::unique_ptr<msocket::Socket> accepted_socket;
+
+      void on_connection_accepted(std::unique_ptr<msocket::Socket> socket) override
+      {
+         std::lock_guard<std::mutex> lock(m_mutex);
+         accept_calls++;
+         accepted_socket = std::move(socket);
+         m_cv.notify_one();
       }
    };
 
@@ -206,6 +227,37 @@ static void test_cpp_tcp_socket_lifecycle(CuTest* tc)
    // Destructor of sock_moved will safely call msocket_delete via RAII
 }
 
+static void test_cpp_tcp_server_lifecycle(CuTest* tc)
+{
+   MockServerListener srv_listener;
+   msocket::TcpServer server(MSOCKET_ADDR_INET);
+   server.set_listener(&srv_listener);
+   int res = server.start(19890);
+   CuAssertIntEquals(tc, 0, res);
+
+   MockSocketListener cli_listener;
+   msocket::TcpSocket client(MSOCKET_ADDR_INET);
+   client.set_listener(&cli_listener);
+   res = client.connect("127.0.0.1", 19890);
+   CuAssertIntEquals(tc, 0, res);
+
+   std::unique_lock<std::mutex> lock(srv_listener.m_mutex);
+   bool accepted = srv_listener.m_cv.wait_for(lock, std::chrono::milliseconds(1000), [&]() {
+      return srv_listener.accept_calls > 0;
+   });
+   CuAssertTrue(tc, accepted);
+   CuAssertIntEquals(tc, 1, srv_listener.accept_calls);
+   CuAssertPtrNotNull(tc, srv_listener.accepted_socket.get());
+   auto accepted_sock = std::move(srv_listener.accepted_socket);
+   lock.unlock();
+
+   client.close();
+   accepted_sock->close();
+   accepted_sock.reset();
+
+   server.stop();
+}
+
 extern "C" CuSuite* testsuite_cpp_socket(void)
 {
    CuSuite* suite = CuSuiteNew();
@@ -214,5 +266,6 @@ extern "C" CuSuite* testsuite_cpp_socket(void)
    SUITE_ADD_TEST(suite, test_cpp_test_socket_move);
    SUITE_ADD_TEST(suite, test_cpp_legacy_handler_compat);
    SUITE_ADD_TEST(suite, test_cpp_tcp_socket_lifecycle);
+   SUITE_ADD_TEST(suite, test_cpp_tcp_server_lifecycle);
    return suite;
 }
