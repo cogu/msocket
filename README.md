@@ -67,7 +67,7 @@ ctest --preset clang-asan
 # ThreadSanitizer (TSan)
 cmake --preset clang-tsan
 cmake --build --preset clang-tsan
-ctest --preset clang-tsan
+ctest --preset clang-tsan -V
 
 # Static Analysis
 cmake --preset clang-tidy

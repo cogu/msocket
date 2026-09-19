@@ -159,6 +159,9 @@ static void test_tcp_loopback(CuTest *tc)
    CuAssertStrEquals(tc, "Pong!", g_client_recv_buf);
 
    /* Cleanup */
+   msocket_thread_join(accept_thread);
+   msocket_thread_delete(accept_thread);
+
    msocket_close(cli);
    msocket_delete(cli);
 
@@ -169,8 +172,6 @@ static void test_tcp_loopback(CuTest *tc)
    }
 
    msocket_close(srv);
-   msocket_thread_join(accept_thread);
-   msocket_thread_delete(accept_thread);
    msocket_delete(srv);
 
    msocket_sem_delete(g_sem_client_connected);
