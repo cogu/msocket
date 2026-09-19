@@ -452,7 +452,7 @@ static void test_msocket_server_disable_cleanup(CuTest *tc)
 
    /* Disable automatic cleanup (as in apx_socket_extension) */
    msocket_server_disable_cleanup(srv);
-   CuAssertPtrEquals(tc, NULL, srv->destructor);
+   CuAssertFnPtrEquals(tc, NULL, srv->destructor);
 
    msocket_handler_t handler;
    memset(&handler, 0, sizeof(handler));
