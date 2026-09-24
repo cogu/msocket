@@ -305,7 +305,10 @@ msocket_error_t msocket_unix_connect(msocket_t *self, const char *socket_path);
 msocket_error_t msocket_send_to(msocket_t *self, const char *addr, uint16_t port, const void *msg_data, uint32_t msg_len);
 
 /**
- * Sends stream data over an established TCP connection.
+ * Sends stream data over an established TCP or UNIX domain socket connection.
+ *
+ * Transmits with MSG_NOSIGNAL (where supported) to prevent raising SIGPIPE
+ * if the remote peer has closed or disconnected.
  *
  * @param self Pointer to msocket_t instance (configured in MSOCKET_MODE_STREAM).
  * @param msg_data Pointer to data payload.

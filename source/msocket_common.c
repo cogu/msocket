@@ -545,7 +545,7 @@ msocket_error_t msocket_send(msocket_t *self, const void *msg_data, uint32_t msg
    const char *p = (const char *)msg_data;
    uint32_t remain = msg_len;
    while (remain > 0u) {
-      int n = (int)send(self->os->tcp_sockfd, p, (int)remain, 0);
+      int n = (int)send(self->os->tcp_sockfd, p, (int)remain, MSG_NOSIGNAL);
       if (n <= 0) {
          return MSOCKET_SOCKET_ERROR;
       }
