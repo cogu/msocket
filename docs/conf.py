@@ -12,7 +12,7 @@ import subprocess
 project = 'msocket'
 copyright = '2026, Conny Gustafsson'
 author = 'Conny Gustafsson'
-release = '2.0.2'
+release = '2.0.3'
 
 # -- General configuration ---------------------------------------------------
 
