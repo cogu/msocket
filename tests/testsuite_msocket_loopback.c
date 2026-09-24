@@ -219,10 +219,78 @@ static void test_udp_loopback(CuTest *tc)
    msocket_sem_delete(g_sem_udp_received);
 }
 
+#define TCP_PORT_SIGPIPE 19878u
+
+static void test_tcp_send_to_closed_peer_returns_error_without_sigpipe(CuTest *tc)
+{
+   g_sem_client_connected = msocket_sem_new(0u);
+   g_accepted_peer = NULL;
+
+   msocket_t *srv = msocket_new(MSOCKET_ADDR_INET);
+   CuAssertPtrNotNull(tc, srv);
+   msocket_error_t rc = msocket_listen(srv, MSOCKET_MODE_STREAM, TCP_PORT_SIGPIPE, "127.0.0.1");
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+
+   msocket_handler_t srv_handler;
+   memset(&srv_handler, 0, sizeof(srv_handler));
+
+   accept_thread_arg_t ctx = { srv, &srv_handler };
+   msocket_thread_t *accept_thread = msocket_thread_create(accept_worker, &ctx);
+   CuAssertPtrNotNull(tc, accept_thread);
+
+   /* Start client */
+   msocket_t *cli = msocket_new(MSOCKET_ADDR_INET);
+   CuAssertPtrNotNull(tc, cli);
+
+   msocket_handler_t cli_handler;
+   memset(&cli_handler, 0, sizeof(cli_handler));
+   cli_handler.stream_connected = client_on_connected;
+   msocket_set_handler(cli, &cli_handler, NULL);
+
+   rc = msocket_connect(cli, "127.0.0.1", TCP_PORT_SIGPIPE);
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+
+   /* Wait for client connected */
+   int attempts = 0;
+   while (msocket_sem_test(g_sem_client_connected) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+
+   /* Wait for accept thread to finish accepting peer */
+   msocket_thread_join(accept_thread);
+   msocket_thread_delete(accept_thread);
+   CuAssertPtrNotNull(tc, g_accepted_peer);
+
+   /* Close the client abruptly */
+   msocket_close(cli);
+   msocket_delete(cli);
+   msocket_sleep_ms(50u);
+
+   /* Sending to the closed peer from server side should not trigger SIGPIPE or crash */
+   (void)msocket_send(g_accepted_peer, "Test1", 5u);
+   msocket_sleep_ms(50u);
+   (void)msocket_send(g_accepted_peer, "Test2", 5u);
+
+   /* Cleanup */
+   if (g_accepted_peer != NULL) {
+      msocket_close(g_accepted_peer);
+      msocket_delete(g_accepted_peer);
+      g_accepted_peer = NULL;
+   }
+
+   msocket_close(srv);
+   msocket_delete(srv);
+
+   msocket_sem_delete(g_sem_client_connected);
+}
+
 CuSuite *testsuite_msocket_loopback(void)
 {
    CuSuite *suite = CuSuiteNew();
    SUITE_ADD_TEST(suite, test_tcp_loopback);
    SUITE_ADD_TEST(suite, test_udp_loopback);
+   SUITE_ADD_TEST(suite, test_tcp_send_to_closed_peer_returns_error_without_sigpipe);
    return suite;
 }
+
