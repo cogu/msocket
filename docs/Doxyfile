@@ -1,6 +1,6 @@
 # Doxyfile for Sphinx + Breathe integration
 PROJECT_NAME           = "msocket"
-PROJECT_NUMBER         = "2.0.2"
+PROJECT_NUMBER         = "2.0.3"
 PROJECT_BRIEF          = "Event-driven socket library for Linux and Windows"
 
 # Input configuration
