@@ -14,6 +14,7 @@ Online documentation and API reference: **[msocket.readthedocs.io](https://msock
 It allows applications to register callbacks when lifecycle events occur on a socket (such as connection established, disconnected, or new data received). The `msocket` library manages the low-level details of the OS-level socket objects and background worker threads, functioning identically across Linux and Windows:
 
 * **TCP Client and Server**: Stream communication supporting IPv4 and IPv6.
+* **TLS Transport (Mbed TLS)**: Secure stream transport supporting TLS 1.2+ server and client, certificate validation, and mutual TLS (mTLS) authentication (optional).
 * **UDP Client and Server**: Datagram communication with support for unicast and multicast.
 * **UNIX Domain Sockets**: High-performance local inter-process communication on Linux and POSIX platforms.
 * **Event-Driven Asynchronous I/O**: Integrated worker threads monitor socket activity and dispatch connect, disconnect, and data callbacks.
@@ -26,6 +27,7 @@ It allows applications to register callbacks when lifecycle events occur on a so
 |-----------|--------|----------|-------------|
 | `msocket` | `msocket.h` | Core | Client/peer event-driven socket handling TCP, UDP, and UNIX domains |
 | `msocket_server` | `msocket_server.h` | Core | Server connection listener and client socket lifecycle manager |
+| `msocket_tls` | `msocket_tls.h` | Core | TLS transport configuration, context management, and mTLS verification (optional) |
 | `msocket_adapter` | `msocket_adapter.h` | C++ | RAII C++ wrapper classes (`Socket`, `TcpSocket`, `TestSocket`, `TcpServer`) and legacy adapter |
 | `testsocket` | `testsocket.h` | Testing | In-memory mock socket engine for protocol testing without network access |
 | `testsocket_spy` | `testsocket_spy.h` | Testing | Mock socket spy for recording sent data and verifying interactions in unit tests |
@@ -38,13 +40,18 @@ It allows applications to register callbacks when lifecycle events occur on a so
 
 ## Dependencies
 
+### Required
 * [cogu/adt](https://github.com/cogu/adt) (v0.3.7 or later)
 
-When building standalone unit tests, clone `adt` and `msocket` side by side:
+### Optional
+* [Mbed TLS](https://github.com/Mbed-TLS/mbedtls) (v3.x or v2.x): Enables TLS stream transport and mutual TLS (mTLS) verification (`MSOCKET_ENABLE_TLS=ON`). When building standalone, `msocket` will automatically detect a sibling `../mbedtls` folder or look for a system-installed Mbed TLS via `find_package(MbedTLS)`. If Mbed TLS is not found or disabled, `msocket` builds cleanly with standard plain TCP, UDP, and UNIX socket support.
+
+When building standalone unit tests, clone dependencies side by side:
 
 ```bash
 cd ~/repo
 git clone https://github.com/cogu/adt.git
+git clone https://github.com/Mbed-TLS/mbedtls.git  # optional, for TLS support
 git clone https://github.com/cogu/msocket.git
 cd msocket
 ```
@@ -133,9 +140,11 @@ cmake --build build
 |---|---|---|---|
 | `UNIT_TEST` | `-DUNIT_TEST=ON` | `OFF` | Enables building unit test executable (`msocket_unit`) |
 | `BUILD_EXAMPLES` | `-DBUILD_EXAMPLES=ON` | `OFF` | Enables building example executables (`echo_server`, `echo_client`) |
+| `MSOCKET_ENABLE_TLS` | `-DMSOCKET_ENABLE_TLS=ON` | `ON` | Enables TLS support via Mbed TLS (auto-disabled if Mbed TLS is not found) |
 | `MSOCKET_SANITIZERS` | `-DMSOCKET_SANITIZERS="address,undefined"` | `""` | Enables compiler sanitizers (GCC / Clang) |
 | `ENABLE_MSVC_ANALYZE` | `-DENABLE_MSVC_ANALYZE=ON` | `OFF` | Enables MSVC static code analysis (`/analyze`) |
 | `ADT_DIR` | `-DADT_DIR="/path/to/adt"` | `../adt` | Path to `adt` repository |
+| `MBEDTLS_DIR` | `-DMBEDTLS_DIR="/path/to/mbedtls"` | `../mbedtls` | Path to `mbedtls` repository (when building standalone) |
 
 ## License
 

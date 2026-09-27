@@ -36,6 +36,12 @@ const char *msocket_error_str(msocket_error_t error_code)
       return "Timeout";
    case MSOCKET_NOT_CONNECTED_ERROR:
       return "Not connected";
+   case MSOCKET_TLS_ERROR:
+      return "TLS error";
+   case MSOCKET_TLS_HANDSHAKE_ERROR:
+      return "TLS handshake error";
+   case MSOCKET_TLS_CERT_ERROR:
+      return "TLS certificate error";
    default:
       return "Unknown error";
    }

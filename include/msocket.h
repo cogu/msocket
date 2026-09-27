@@ -62,6 +62,8 @@ typedef uint8_t msocket_state_t;
 struct msocket_tag;
 struct msocket_server_tag;
 struct msocket_os_tag;
+struct msocket_tls_tag;
+struct msocket_tls_config_tag;
 
 /**
  * Event handler callback table for stream and datagram socket events.
@@ -149,6 +151,7 @@ typedef struct msocket_tag {
    uint32_t inactivity_call_ms;
    struct msocket_server_tag *server;
    struct msocket_os_tag *os;
+   struct msocket_tls_tag *tls;
 } msocket_t;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -355,6 +358,21 @@ msocket_endpoint_type_t msocket_parse_endpoint(const char *text, adt_str_t **add
 #define udp_msg                     datagram_msg
 #define tcp_rx_buf                  stream_rx_buf
 #define tcp_info                    stream_info
+
+/**
+ * Attaches a TLS context to an msocket.
+ */
+void msocket_set_tls(msocket_t *self, struct msocket_tls_tag *tls);
+
+/**
+ * Retrieves the TLS context attached to an msocket.
+ */
+struct msocket_tls_tag *msocket_get_tls(const msocket_t *self);
+
+/**
+ * Connects to a remote server using TLS over TCP.
+ */
+msocket_error_t msocket_connect_tls(msocket_t *self, const char *addr, uint16_t port, const struct msocket_tls_config_tag *tls_config);
 
 #ifdef __cplusplus
 }
