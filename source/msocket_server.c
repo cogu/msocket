@@ -18,6 +18,8 @@
 #include <assert.h>
 #include "msocket_server.h"
 #include "msocket_internal.h"
+#include "msocket_tls.h"
+#include "msocket_tls_internal.h"
 
 
 
@@ -45,6 +47,7 @@ void msocket_server_create(msocket_server_t *self, uint8_t address_family, void 
       self->handler_arg = NULL;
       self->address_family = address_family;
       self->destructor = (destructor != NULL) ? destructor : msocket_vdelete;
+      self->tls_server = NULL;
 
       adt_ary_create(&self->cleanup_items, NULL);
 
@@ -100,6 +103,12 @@ void msocket_server_destroy(msocket_server_t *self)
          self->socket_path = NULL;
       }
 
+#if defined(MSOCKET_ENABLE_TLS)
+      if (self->tls_server != NULL) {
+         msocket_tls_server_delete(self->tls_server);
+         self->tls_server = NULL;
+      }
+#endif
       free(self->os);
       self->os = NULL;
    }
@@ -158,6 +167,26 @@ void msocket_server_unix_start(msocket_server_t *self, const char *socket_path)
       }
       msocket_server_start_threads(self);
    }
+}
+
+msocket_error_t msocket_server_start_tls(msocket_server_t *self, uint16_t tcp_port, const struct msocket_tls_config_tag *tls_config)
+{
+#if defined(MSOCKET_ENABLE_TLS)
+   if (self == NULL || tls_config == NULL) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+   self->tls_server = msocket_tls_server_new(tls_config);
+   if (self->tls_server == NULL) {
+      return MSOCKET_TLS_ERROR;
+   }
+   msocket_server_start(self, NULL, 0, tcp_port);
+   return MSOCKET_NO_ERROR;
+#else
+   (void)self;
+   (void)tcp_port;
+   (void)tls_config;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+#endif
 }
 
 void msocket_server_disable_cleanup(msocket_server_t *self)
@@ -255,6 +284,16 @@ static void accept_task(void *arg)
       if (child == NULL) {
          break;
       }
+#if defined(MSOCKET_ENABLE_TLS)
+      if (self->tls_server != NULL) {
+         struct msocket_tls_tag *tls = msocket_tls_server_accept(self->tls_server, child->os->tcp_sockfd);
+         if (tls == NULL) {
+            msocket_delete(child);
+            continue;
+         }
+         msocket_set_tls(child, tls);
+      }
+#endif
       if (self->destructor == msocket_vdelete) {
          msocket_set_server(child, self);
       }

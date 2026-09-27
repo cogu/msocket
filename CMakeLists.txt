@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(msocket LANGUAGES C CXX VERSION 2.0.3)
+project(msocket LANGUAGES C CXX VERSION 2.1.0)
 
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
@@ -60,6 +60,7 @@ set(MSOCKET_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/msocket.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/msocket_error.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/msocket_server.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/msocket_tls.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/testsocket.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/testsocket_spy.h
 )
@@ -89,6 +90,48 @@ target_include_directories(msocket
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/source
 )
+
+### TLS Support (Mbed TLS, optional)
+option(MSOCKET_ENABLE_TLS "Enable TLS support using Mbed TLS" ON)
+
+if(MSOCKET_ENABLE_TLS)
+    if(NOT TARGET mbedtls)
+        set(MBEDTLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../mbedtls" CACHE PATH "Path to mbedtls repository")
+        if(EXISTS "${MBEDTLS_DIR}/CMakeLists.txt")
+            set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+            set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
+            add_subdirectory("${MBEDTLS_DIR}" "${CMAKE_BINARY_DIR}/mbedtls" EXCLUDE_FROM_ALL)
+        else()
+            find_package(MbedTLS QUIET)
+        endif()
+    endif()
+
+    if(TARGET mbedtls OR MbedTLS_FOUND)
+        set(MSOCKET_HAVE_TLS TRUE)
+    endif()
+
+    if(MSOCKET_HAVE_TLS)
+        target_compile_definitions(msocket PUBLIC MSOCKET_ENABLE_TLS)
+        target_sources(msocket PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_tls.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_tls_internal.h
+        )
+        list(APPEND MSOCKET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_tls.c)
+        list(APPEND MSOCKET_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/source/msocket_tls_internal.h)
+        if(TARGET mbedtls)
+            target_link_libraries(msocket PUBLIC mbedtls mbedx509 mbedcrypto)
+        else()
+            target_link_libraries(msocket PUBLIC ${MBEDTLS_LIBRARIES})
+            target_include_directories(msocket PUBLIC ${MBEDTLS_INCLUDE_DIRS})
+        endif()
+    endif()
+endif()
+
+get_directory_property(has_parent PARENT_DIRECTORY)
+if(has_parent)
+    set(MSOCKET_HEADERS ${MSOCKET_HEADERS} PARENT_SCOPE)
+    set(MSOCKET_SOURCES ${MSOCKET_SOURCES} PARENT_SCOPE)
+endif()
 
 ### Library: msocket_adapter (C++)
 set(MSOCKET_ADAPTER_HEADERS

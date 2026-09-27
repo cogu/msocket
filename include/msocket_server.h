@@ -26,6 +26,8 @@ extern "C" {
 // PUBLIC CONSTANTS AND DATA TYPES
 //////////////////////////////////////////////////////////////////////////////
 struct msocket_server_os_tag;
+struct msocket_tls_server_tag;
+struct msocket_tls_config_tag;
 
 typedef struct msocket_server_tag {
    msocket_t *accept_socket;
@@ -40,6 +42,7 @@ typedef struct msocket_server_tag {
    msocket_handler_t handler_table;
    void (*destructor)(void *arg);
    struct msocket_server_os_tag *os;
+   struct msocket_tls_server_tag *tls_server;
 } msocket_server_t;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -120,6 +123,16 @@ void msocket_server_start(msocket_server_t *self, const char *udp_addr, uint16_t
  * @param socket_path Path to UNIX domain socket.
  */
 void msocket_server_unix_start(msocket_server_t *self, const char *socket_path);
+
+/**
+ * Binds and starts a listening TCP server with TLS enabled.
+ *
+ * @param self Pointer to msocket_server_t instance.
+ * @param tcp_port TCP port to listen on.
+ * @param tls_config Pointer to TLS configuration.
+ * @return MSOCKET_NO_ERROR on success, or error code on failure.
+ */
+msocket_error_t msocket_server_start_tls(msocket_server_t *self, uint16_t tcp_port, const struct msocket_tls_config_tag *tls_config);
 
 /**
  * Disables the automatic background connection cleanup thread.

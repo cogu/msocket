@@ -21,6 +21,8 @@
 #include "msocket.h"
 #include "msocket_internal.h"
 #include "msocket_server.h"
+#include "msocket_tls.h"
+#include "msocket_tls_internal.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // PRIVATE CONSTANTS AND DATA TYPES
@@ -122,6 +124,7 @@ msocket_error_t msocket_create(msocket_t *self, uint8_t address_family)
    self->server = NULL;
    self->socket_mode = MSOCKET_MODE_NONE;
    self->state = MSOCKET_STATE_NONE;
+   self->tls = NULL;
 
    msocket_timeout_reset(self);
    adt_streambuffer_create(&self->stream_rx_buf, 0u, 0u);
@@ -139,6 +142,12 @@ void msocket_destroy(msocket_t *self)
 {
    if (self != NULL) {
       msocket_close(self);
+#if defined(MSOCKET_ENABLE_TLS)
+      if (self->tls != NULL) {
+         msocket_tls_delete(self->tls);
+         self->tls = NULL;
+      }
+#endif
       adt_streambuffer_destroy(&self->stream_rx_buf);
       if (self->handler_table != NULL) {
          free(self->handler_table);
@@ -544,13 +553,23 @@ msocket_error_t msocket_send(msocket_t *self, const void *msg_data, uint32_t msg
 
    const char *p = (const char *)msg_data;
    uint32_t remain = msg_len;
-   while (remain > 0u) {
-      int n = (int)send(self->os->tcp_sockfd, p, (int)remain, MSG_NOSIGNAL);
-      if (n <= 0) {
+#if defined(MSOCKET_ENABLE_TLS)
+   if (self->tls != NULL) {
+      int n = msocket_tls_write(self->tls, (const uint8_t *)msg_data, msg_len);
+      if (n < 0 || (uint32_t)n != msg_len) {
          return MSOCKET_SOCKET_ERROR;
       }
-      remain -= (uint32_t)n;
-      p += n;
+   } else
+#endif
+   {
+      while (remain > 0u) {
+         int n = (int)send(self->os->tcp_sockfd, p, (int)remain, MSG_NOSIGNAL);
+         if (n <= 0) {
+            return MSOCKET_SOCKET_ERROR;
+         }
+         remain -= (uint32_t)n;
+         p += n;
+      }
    }
 
    msocket_os_mutex_lock(self->os);
@@ -609,6 +628,11 @@ void msocket_close(msocket_t *self)
    }
 
    self->state = MSOCKET_STATE_CLOSING;
+#if defined(MSOCKET_ENABLE_TLS)
+   if (self->tls != NULL) {
+      msocket_tls_close(self->tls);
+   }
+#endif
    if (OS_SOCKET_IS_VALID(self->os->tcp_sockfd)) {
       OS_SOCKET_SHUTDOWN(self->os->tcp_sockfd);
    }
@@ -834,7 +858,15 @@ static bool io_read_stream(msocket_t *self)
    if (buf == NULL) {
       return false;
    }
-   int rc = (int)recv(self->os->tcp_sockfd, (char *)buf, avail_bytes, 0);
+   int rc;
+#if defined(MSOCKET_ENABLE_TLS)
+   if (self->tls != NULL) {
+      rc = msocket_tls_read(self->tls, buf, avail_bytes);
+   } else
+#endif
+   {
+      rc = (int)recv(self->os->tcp_sockfd, (char *)buf, avail_bytes, 0);
+   }
    if (rc > 0) {
       if (adt_streambuffer_write_commit(&self->stream_rx_buf, (uint32_t)rc) != ADT_NO_ERROR) {
          return false;
@@ -842,6 +874,25 @@ static bool io_read_stream(msocket_t *self)
       if (msocket_common_process_stream_data(self) != MSOCKET_NO_ERROR) {
          return false;
       }
+#if defined(MSOCKET_ENABLE_TLS)
+      while (self->tls != NULL && msocket_tls_has_pending(self->tls)) {
+         buf = adt_streambuffer_write_begin(&self->stream_rx_buf, MSG_BUF_SIZE, &avail_bytes);
+         if (buf == NULL) {
+            return false;
+         }
+         rc = msocket_tls_read(self->tls, buf, avail_bytes);
+         if (rc > 0) {
+            if (adt_streambuffer_write_commit(&self->stream_rx_buf, (uint32_t)rc) != ADT_NO_ERROR) {
+               return false;
+            }
+            if (msocket_common_process_stream_data(self) != MSOCKET_NO_ERROR) {
+               return false;
+            }
+         } else {
+            break;
+         }
+      }
+#endif
    } else {
       msocket_common_on_disconnected(self);
       return false;
@@ -864,11 +915,31 @@ static void io_task(void *arg)
    }
    msocket_os_mutex_unlock(self->os);
 
+#if defined(MSOCKET_ENABLE_TLS)
+   if (self->tls != NULL) {
+      msocket_error_t tls_err = msocket_tls_handshake(self->tls);
+      if (tls_err != MSOCKET_NO_ERROR) {
+         msocket_os_mutex_lock(self->os);
+         self->state = MSOCKET_STATE_CLOSING;
+         msocket_os_mutex_unlock(self->os);
+         msocket_common_on_disconnected(self);
+         goto io_task_exit;
+      }
+   }
+#endif
+
    if (notify_connected) {
       msocket_common_on_connected(self);
    }
 
    while (1) {
+#if defined(MSOCKET_ENABLE_TLS)
+      if (self->tls != NULL && msocket_tls_has_pending(self->tls)) {
+         if (!io_read_stream(self)) {
+            break;
+         }
+      }
+#endif
       fd_set readfds;
       FD_ZERO(&readfds);
       int max_sd = -1;
@@ -916,14 +987,23 @@ static void io_task(void *arg)
       }
    }
 
-   msocket_server_t *server = NULL;
-   msocket_os_mutex_lock(self->os);
-   server = self->server;
-   self->server = NULL;
-   msocket_os_mutex_unlock(self->os);
+#if defined(MSOCKET_ENABLE_TLS)
+io_task_exit:
+#endif
+   {
+      msocket_server_t *server = NULL;
+      msocket_os_mutex_lock(self->os);
+      if (OS_SOCKET_IS_VALID(self->os->tcp_sockfd)) {
+         OS_SOCKET_SHUTDOWN(self->os->tcp_sockfd);
+      }
+      self->state = MSOCKET_STATE_CLOSING;
+      server = self->server;
+      self->server = NULL;
+      msocket_os_mutex_unlock(self->os);
 
-   if (server != NULL) {
-      msocket_server_reap_connection(server, (void *)self);
+      if (server != NULL) {
+         msocket_server_reap_connection(server, (void *)self);
+      }
    }
 }
 
@@ -1140,5 +1220,113 @@ msocket_endpoint_type_t msocket_parse_endpoint(const char *text, adt_str_t **add
    }
 
    return retval;
+}
+
+void msocket_set_tls(msocket_t *self, struct msocket_tls_tag *tls)
+{
+   if (self != NULL) {
+      self->tls = tls;
+   }
+}
+
+struct msocket_tls_tag *msocket_get_tls(const msocket_t *self)
+{
+   return (self != NULL) ? self->tls : NULL;
+}
+
+msocket_error_t msocket_connect_tls(msocket_t *self, const char *addr, uint16_t port, const struct msocket_tls_config_tag *tls_config)
+{
+#if defined(MSOCKET_ENABLE_TLS)
+   if (self == NULL || addr == NULL || tls_config == NULL || (self->socket_mode & MSOCKET_MODE_STREAM) != 0) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+   if (self->handler_table == NULL || self->os == NULL) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+
+   msocket_tls_client_t *cli = msocket_tls_client_new(tls_config);
+   if (cli == NULL) {
+      return MSOCKET_TLS_ERROR;
+   }
+
+   os_socket_t sockfd;
+   int one = 1;
+   int rc;
+
+   if (self->address_family == MSOCKET_ADDR_INET6) {
+      struct sockaddr_in6 saddr6;
+      memset(&saddr6, 0, sizeof(saddr6));
+      rc = inet_pton(AF_INET6, addr, &(saddr6.sin6_addr));
+      if (rc <= 0) {
+         msocket_tls_client_delete(cli);
+         return MSOCKET_INVALID_ARGUMENT_ERROR;
+      }
+      saddr6.sin6_family = AF_INET6;
+      saddr6.sin6_port = htons(port);
+      sockfd = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP);
+      if (OS_SOCKET_IS_INVALID(sockfd)) {
+         msocket_tls_client_delete(cli);
+         return MSOCKET_SOCKET_ERROR;
+      }
+      rc = connect(sockfd, (struct sockaddr *)&saddr6, sizeof(saddr6));
+   } else {
+      struct sockaddr_in saddr;
+      memset(&saddr, 0, sizeof(saddr));
+      rc = inet_pton(AF_INET, addr, &(saddr.sin_addr));
+      if (rc <= 0) {
+         msocket_tls_client_delete(cli);
+         return MSOCKET_INVALID_ARGUMENT_ERROR;
+      }
+      saddr.sin_family = AF_INET;
+      saddr.sin_port = htons(port);
+      sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+      if (OS_SOCKET_IS_INVALID(sockfd)) {
+         msocket_tls_client_delete(cli);
+         return MSOCKET_SOCKET_ERROR;
+      }
+      rc = connect(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
+   }
+
+   if (rc < 0) {
+      OS_SOCKET_CLOSE(sockfd);
+      msocket_tls_client_delete(cli);
+      return MSOCKET_SOCKET_ERROR;
+   }
+
+   setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, OS_SOCKOPT_CAST(&one), sizeof(one));
+   strncpy(self->stream_info.addr, addr, MSOCKET_ADDRSTRLEN - 1);
+   self->stream_info.port = port;
+   self->os->tcp_sockfd = sockfd;
+   self->socket_mode |= MSOCKET_MODE_STREAM;
+   self->state = MSOCKET_STATE_ESTABLISHED;
+   self->os->new_connection = true;
+
+   msocket_tls_t *tls = msocket_tls_client_attach(cli, sockfd, addr);
+   if (tls == NULL) {
+      OS_SOCKET_CLOSE(sockfd);
+      self->os->tcp_sockfd = OS_SOCKET_INVALID;
+      self->state = MSOCKET_STATE_CLOSED;
+      msocket_tls_client_delete(cli);
+      return MSOCKET_TLS_ERROR;
+   }
+   msocket_set_tls(self, tls);
+
+   msocket_error_t io_rc = msocket_start_io_thread(self);
+   if (io_rc != MSOCKET_NO_ERROR) {
+      OS_SOCKET_CLOSE(sockfd);
+      self->os->tcp_sockfd = OS_SOCKET_INVALID;
+      self->state = MSOCKET_STATE_CLOSED;
+      msocket_tls_delete(tls);
+      self->tls = NULL;
+      return io_rc;
+   }
+   return MSOCKET_NO_ERROR;
+#else
+   (void)self;
+   (void)addr;
+   (void)port;
+   (void)tls_config;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+#endif
 }
 

@@ -31,6 +31,9 @@ extern "C" {
 #define MSOCKET_NOT_IMPLEMENTED_ERROR   4
 #define MSOCKET_TIMEOUT_ERROR           5
 #define MSOCKET_NOT_CONNECTED_ERROR     6
+#define MSOCKET_TLS_ERROR               7
+#define MSOCKET_TLS_HANDSHAKE_ERROR     8
+#define MSOCKET_TLS_CERT_ERROR          9
 
 typedef int8_t msocket_error_t;
 
