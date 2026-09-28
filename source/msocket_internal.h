@@ -82,6 +82,9 @@ typedef SOCKET os_socket_t;
 # include <unistd.h>
 # include <pthread.h>
 # include <semaphore.h>
+# if defined(__linux__)
+#  include <linux/vm_sockets.h>
+# endif
 
 /* Sockets */
 typedef int os_socket_t;
@@ -184,6 +187,9 @@ void msocket_os_mutex_unlock(msocket_os_t *os);
 
 msocket_error_t msocket_os_unix_listen(msocket_t *self, const char *socket_path);
 msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path);
+
+msocket_error_t msocket_os_vsock_listen(msocket_t *self, uint32_t cid, uint32_t port);
+msocket_error_t msocket_os_vsock_connect(msocket_t *self, uint32_t cid, uint32_t port);
 
 //////////////////////////////////////////////////////////////////////////////
 // COMMON CALLBACKS FROM PLATFORM

@@ -113,6 +113,12 @@ msocket_error_t msocket_create(msocket_t *self, uint8_t address_family)
 #endif
       self->address_family = MSOCKET_ADDR_UNIX;
       break;
+   case MSOCKET_ADDR_VSOCK:
+#if defined(AF_VSOCK) && (AF_VSOCK != MSOCKET_ADDR_VSOCK)
+   case AF_VSOCK:
+#endif
+      self->address_family = MSOCKET_ADDR_VSOCK;
+      break;
    default:
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
@@ -332,6 +338,14 @@ msocket_error_t msocket_unix_listen(msocket_t *self, const char *socket_path)
    return msocket_os_unix_listen(self, socket_path);
 }
 
+msocket_error_t msocket_vsock_listen(msocket_t *self, uint32_t cid, uint32_t port)
+{
+   if (self == NULL || self->address_family != MSOCKET_ADDR_VSOCK || port == 0u) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+   return msocket_os_vsock_listen(self, cid, port);
+}
+
 msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
 {
    if (self == NULL || self->os == NULL || self->state != MSOCKET_STATE_LISTENING) {
@@ -351,6 +365,15 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
    }
 
    msocket_os_mutex_lock(self->os);
+   if (self->state == MSOCKET_STATE_CLOSING) {
+      msocket_os_mutex_unlock(self->os);
+      if (placement_new) {
+         msocket_destroy(child);
+      } else {
+         msocket_delete(child);
+      }
+      return NULL;
+   }
    self->state = MSOCKET_STATE_ACCEPTING;
    os_socket_t accept_fd = self->os->tcp_sockfd;
    msocket_os_mutex_unlock(self->os);
@@ -362,6 +385,45 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
          msocket_delete(child);
       }
       return NULL;
+   }
+
+   while (1) {
+      fd_set readfds;
+      FD_ZERO(&readfds);
+      FD_SET(accept_fd, &readfds);
+
+      struct timeval timeout;
+      timeout.tv_sec = 0;
+      timeout.tv_usec = TIMEOUT_US;
+
+      int activity = select((int)accept_fd + 1, &readfds, NULL, NULL, &timeout);
+      if (activity > 0) {
+         break;
+      } else if (activity == 0) {
+         msocket_state_t state;
+         msocket_os_mutex_lock(self->os);
+         state = self->state;
+         msocket_os_mutex_unlock(self->os);
+
+         if (state == MSOCKET_STATE_CLOSING) {
+            if (placement_new) {
+               msocket_destroy(child);
+            } else {
+               msocket_delete(child);
+            }
+            return NULL;
+         }
+      } else {
+         if (OS_SOCKET_ERRNO_IS_INTR()) {
+            continue;
+         }
+         if (placement_new) {
+            msocket_destroy(child);
+         } else {
+            msocket_delete(child);
+         }
+         return NULL;
+      }
    }
 
    os_socket_t sockfd;
@@ -392,6 +454,22 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
          setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, OS_SOCKOPT_CAST(&one), sizeof(one));
          child->os->tcp_sockfd = sockfd;
       }
+   } else if (self->address_family == MSOCKET_ADDR_VSOCK) {
+#if defined(__linux__) && defined(AF_VSOCK)
+      struct sockaddr_vm cli_addr_vm;
+      OS_SOCK_LEN_T cli_len = (OS_SOCK_LEN_T)sizeof(cli_addr_vm);
+      memset(&cli_addr_vm, 0, sizeof(cli_addr_vm));
+      sockfd = accept(accept_fd, (struct sockaddr *)&cli_addr_vm, &cli_len);
+      if (OS_SOCKET_IS_INVALID(sockfd)) {
+         result = MSOCKET_SOCKET_ERROR;
+      } else {
+         snprintf(child->stream_info.addr, MSOCKET_ADDRSTRLEN, "cid:%u", cli_addr_vm.svm_cid);
+         child->stream_info.port = (uint16_t)(cli_addr_vm.svm_port & 0xFFFF);
+         child->os->tcp_sockfd = sockfd;
+      }
+#else
+      result = MSOCKET_NOT_IMPLEMENTED_ERROR;
+#endif
    } else {
       struct sockaddr_in cli_addr;
       OS_SOCK_LEN_T cli_len = (OS_SOCK_LEN_T)sizeof(cli_addr);
@@ -540,6 +618,17 @@ msocket_error_t msocket_unix_connect(msocket_t *self, const char *socket_path)
       return MSOCKET_INVALID_ARGUMENT_ERROR;
    }
    return msocket_os_unix_connect(self, socket_path);
+}
+
+msocket_error_t msocket_vsock_connect(msocket_t *self, uint32_t cid, uint32_t port)
+{
+   if (self == NULL || port == 0u || (self->socket_mode & MSOCKET_MODE_STREAM) != 0) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+   if (self->handler_table == NULL) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+   return msocket_os_vsock_connect(self, cid, port);
 }
 
 msocket_error_t msocket_send(msocket_t *self, const void *msg_data, uint32_t msg_len)

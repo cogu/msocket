@@ -170,3 +170,23 @@ msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path
    (void)socket_path;
    return MSOCKET_NOT_IMPLEMENTED_ERROR;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// VSOCK (WINDOWS STUBS)
+//////////////////////////////////////////////////////////////////////////////
+
+msocket_error_t msocket_os_vsock_listen(msocket_t *self, uint32_t cid, uint32_t port)
+{
+   (void)self;
+   (void)cid;
+   (void)port;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+}
+
+msocket_error_t msocket_os_vsock_connect(msocket_t *self, uint32_t cid, uint32_t port)
+{
+   (void)self;
+   (void)cid;
+   (void)port;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+}
