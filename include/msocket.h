@@ -56,6 +56,12 @@ typedef uint8_t msocket_state_t;
 #define MSOCKET_ADDR_INET           0u
 #define MSOCKET_ADDR_UNIX           1u
 #define MSOCKET_ADDR_INET6          3u
+#define MSOCKET_ADDR_VSOCK          4u
+
+#define MSOCKET_VMADDR_CID_ANY        0xFFFFFFFFU
+#define MSOCKET_VMADDR_CID_HYPERVISOR 0U
+#define MSOCKET_VMADDR_CID_LOCAL      1U
+#define MSOCKET_VMADDR_CID_HOST       2U
 
 #define MSOCKET_ADDRSTRLEN 46u
 
@@ -225,6 +231,16 @@ msocket_error_t msocket_listen(msocket_t *self, uint8_t mode, uint16_t port, con
 msocket_error_t msocket_unix_listen(msocket_t *self, const char *socket_path);
 
 /**
+ * Binds and configures a listening VSOCK socket (Linux only).
+ *
+ * @param self Pointer to msocket_t instance.
+ * @param cid Context ID to bind to (e.g. MSOCKET_VMADDR_CID_ANY).
+ * @param port VSOCK port number to bind to.
+ * @return MSOCKET_NO_ERROR on success, or error code on failure.
+ */
+msocket_error_t msocket_vsock_listen(msocket_t *self, uint32_t cid, uint32_t port);
+
+/**
  * Accepts an incoming client connection on a listening TCP or UNIX socket.
  *
  * @param self Listening msocket_t instance.
@@ -294,6 +310,19 @@ msocket_error_t msocket_connect(msocket_t *self, const char *addr, uint16_t port
  * @return MSOCKET_NO_ERROR on success, or error code on failure.
  */
 msocket_error_t msocket_unix_connect(msocket_t *self, const char *socket_path);
+
+/**
+ * Initiates an outgoing VSOCK connection (Linux only).
+ *
+ * Requires a handler table to be registered beforehand via msocket_set_handler().
+ * Upon connection, the background I/O event loop is launched automatically.
+ *
+ * @param self Pointer to msocket_t instance.
+ * @param cid Target Context ID (e.g. MSOCKET_VMADDR_CID_HOST or specific guest CID).
+ * @param port Target VSOCK port.
+ * @return MSOCKET_NO_ERROR on success, or error code on failure.
+ */
+msocket_error_t msocket_vsock_connect(msocket_t *self, uint32_t cid, uint32_t port);
 
 /**
  * Sends data to a specific destination over UDP.

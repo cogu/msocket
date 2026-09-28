@@ -223,3 +223,91 @@ msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path
    }
    return MSOCKET_NO_ERROR;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// VSOCK SOCKETS
+//////////////////////////////////////////////////////////////////////////////
+
+msocket_error_t msocket_os_vsock_listen(msocket_t *self, uint32_t cid, uint32_t port)
+{
+#if defined(__linux__) && defined(AF_VSOCK)
+   struct sockaddr_vm saddr;
+   int sockvsock;
+   int rc;
+
+   memset(&saddr, 0, sizeof(saddr));
+   saddr.svm_family = AF_VSOCK;
+   saddr.svm_cid = cid;
+   saddr.svm_port = port;
+
+   sockvsock = socket(AF_VSOCK, SOCK_STREAM, 0);
+   if (sockvsock < 0) {
+      return MSOCKET_SOCKET_ERROR;
+   }
+
+   rc = bind(sockvsock, (struct sockaddr *)&saddr, sizeof(saddr));
+   if (rc < 0) {
+      close(sockvsock);
+      return MSOCKET_SOCKET_ERROR;
+   }
+
+   rc = listen(sockvsock, 5);
+   if (rc < 0) {
+      close(sockvsock);
+      return MSOCKET_SOCKET_ERROR;
+   }
+
+   self->os->tcp_sockfd = sockvsock;
+   self->state = MSOCKET_STATE_LISTENING;
+   self->socket_mode |= MSOCKET_MODE_STREAM;
+   return MSOCKET_NO_ERROR;
+#else
+   (void)self;
+   (void)cid;
+   (void)port;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+#endif
+}
+
+msocket_error_t msocket_os_vsock_connect(msocket_t *self, uint32_t cid, uint32_t port)
+{
+#if defined(__linux__) && defined(AF_VSOCK)
+   struct sockaddr_vm saddr;
+   int sockfd = socket(AF_VSOCK, SOCK_STREAM, 0);
+   if (sockfd < 0) {
+      return MSOCKET_SOCKET_ERROR;
+   }
+
+   memset(&saddr, 0, sizeof(saddr));
+   saddr.svm_family = AF_VSOCK;
+   saddr.svm_cid = cid;
+   saddr.svm_port = port;
+
+   int rc = connect(sockfd, (struct sockaddr *)&saddr, sizeof(saddr));
+   if (rc < 0) {
+      close(sockfd);
+      return MSOCKET_SOCKET_ERROR;
+   }
+
+   snprintf(self->stream_info.addr, MSOCKET_ADDRSTRLEN, "cid:%u", cid);
+   self->stream_info.port = (uint16_t)(port & 0xFFFF);
+   self->os->tcp_sockfd = sockfd;
+   self->socket_mode |= MSOCKET_MODE_STREAM;
+   self->state = MSOCKET_STATE_ESTABLISHED;
+   self->os->new_connection = true;
+
+   msocket_error_t io_rc = msocket_start_io(self);
+   if (io_rc != MSOCKET_NO_ERROR) {
+      close(sockfd);
+      self->os->tcp_sockfd = -1;
+      self->state = MSOCKET_STATE_CLOSED;
+      return io_rc;
+   }
+   return MSOCKET_NO_ERROR;
+#else
+   (void)self;
+   (void)cid;
+   (void)port;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+#endif
+}

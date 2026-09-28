@@ -41,6 +41,8 @@ void msocket_server_create(msocket_server_t *self, uint8_t address_family, void 
       self->udp_port = 0u;
       self->udp_addr = NULL;
       self->socket_path = NULL;
+      self->vsock_cid = 0u;
+      self->vsock_port = 0u;
       self->accept_socket = NULL;
       self->cleanup_stop = 0u;
       memset(&self->handler_table, 0, sizeof(self->handler_table));
@@ -169,6 +171,17 @@ void msocket_server_unix_start(msocket_server_t *self, const char *socket_path)
    }
 }
 
+void msocket_server_vsock_start(msocket_server_t *self, uint32_t cid, uint32_t port)
+{
+   if (self != NULL && port != 0u) {
+      self->tcp_port = 0u;
+      self->udp_port = 0u;
+      self->vsock_cid = cid;
+      self->vsock_port = port;
+      msocket_server_start_threads(self);
+   }
+}
+
 msocket_error_t msocket_server_start_tls(msocket_server_t *self, uint16_t tcp_port, const struct msocket_tls_config_tag *tls_config)
 {
 #if defined(MSOCKET_ENABLE_TLS)
@@ -252,6 +265,16 @@ static msocket_error_t msocket_server_bind(msocket_server_t *self)
       rc = msocket_unix_listen(self->accept_socket, self->socket_path);
       if (rc != MSOCKET_NO_ERROR) {
          fprintf(stderr, "[MSOCKET_SERVER] Failed to bind UNIX path %s\n", self->socket_path);
+         msocket_delete(self->accept_socket);
+         self->accept_socket = NULL;
+         return rc;
+      }
+   }
+
+   if (self->vsock_port != 0u) {
+      rc = msocket_vsock_listen(self->accept_socket, self->vsock_cid, self->vsock_port);
+      if (rc != MSOCKET_NO_ERROR) {
+         fprintf(stderr, "[MSOCKET_SERVER] Failed to bind VSOCK port %u (CID %u)\n", self->vsock_port, self->vsock_cid);
          msocket_delete(self->accept_socket);
          self->accept_socket = NULL;
          return rc;
