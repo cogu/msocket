@@ -338,6 +338,14 @@ msocket_error_t msocket_unix_listen(msocket_t *self, const char *socket_path)
    return msocket_os_unix_listen(self, socket_path);
 }
 
+msocket_error_t msocket_unix_listen_fd(msocket_t *self, int fd)
+{
+   if (self == NULL || fd < 0) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+   return msocket_os_unix_listen_fd(self, fd);
+}
+
 msocket_error_t msocket_vsock_listen(msocket_t *self, uint32_t cid, uint32_t port)
 {
    if (self == NULL || self->address_family != MSOCKET_ADDR_VSOCK || port == 0u) {

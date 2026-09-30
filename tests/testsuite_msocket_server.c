@@ -500,6 +500,78 @@ static void test_msocket_server_disable_cleanup(CuTest *tc)
    msocket_sem_delete(m_sem_disconnected);
 }
 
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+static void on_server_accept_unix_fd(void *arg, msocket_server_t *srv, void *socket)
+{
+   (void)arg;
+   (void)srv;
+   m_accepted_socket = (msocket_t *)socket;
+   msocket_sem_post(m_sem_accepted);
+}
+
+static void test_msocket_server_unix_start_fd(CuTest *tc)
+{
+   m_sem_accepted = msocket_sem_new(0u);
+   m_accepted_socket = NULL;
+
+   const char *test_sock_path = "/tmp/test_msocket_server_fd.sock";
+   unlink(test_sock_path);
+
+   int raw_fd = socket(PF_LOCAL, SOCK_STREAM, 0);
+   CuAssertTrue(tc, raw_fd >= 0);
+
+   struct sockaddr_un saddr;
+   memset(&saddr, 0, sizeof(saddr));
+   saddr.sun_family = AF_UNIX;
+   strncpy(saddr.sun_path, test_sock_path, sizeof(saddr.sun_path) - 1);
+
+   int rc_bind = bind(raw_fd, (struct sockaddr *)&saddr, sizeof(saddr));
+   CuAssertIntEquals(tc, 0, rc_bind);
+
+   int rc_listen = listen(raw_fd, 5);
+   CuAssertIntEquals(tc, 0, rc_listen);
+
+   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_UNIX, NULL);
+   CuAssertPtrNotNull(tc, srv);
+
+   msocket_handler_t handler;
+   memset(&handler, 0, sizeof(handler));
+   handler.stream_accept = on_server_accept_unix_fd;
+   msocket_server_set_handler(srv, &handler, NULL);
+
+   msocket_server_unix_start_fd(srv, raw_fd);
+
+   msocket_t *cli = msocket_new(MSOCKET_ADDR_UNIX);
+   CuAssertPtrNotNull(tc, cli);
+
+   msocket_handler_t cli_handler;
+   memset(&cli_handler, 0, sizeof(cli_handler));
+   msocket_set_handler(cli, &cli_handler, NULL);
+
+   msocket_error_t rc = msocket_unix_connect(cli, test_sock_path);
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+   msocket_start_io(cli);
+
+   int attempts = 0;
+   while (msocket_sem_test(m_sem_accepted) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+   CuAssertPtrNotNull(tc, m_accepted_socket);
+
+   msocket_close(cli);
+   msocket_delete(cli);
+
+   msocket_server_delete(srv);
+   msocket_sem_delete(m_sem_accepted);
+   unlink(test_sock_path);
+}
+#endif
+
 CuSuite *testsuite_msocket_server(void)
 {
    CuSuite *suite = CuSuiteNew();
@@ -509,5 +581,8 @@ CuSuite *testsuite_msocket_server(void)
    SUITE_ADD_TEST(suite, test_msocket_server_custom_wrapper);
    SUITE_ADD_TEST(suite, test_msocket_server_manual_cleanup_default);
    SUITE_ADD_TEST(suite, test_msocket_server_disable_cleanup);
+#ifndef _WIN32
+   SUITE_ADD_TEST(suite, test_msocket_server_unix_start_fd);
+#endif
    return suite;
 }

@@ -35,6 +35,7 @@ typedef struct msocket_server_tag {
    uint16_t udp_port;
    char *udp_addr;
    char *socket_path;
+   int unix_fd;
    uint32_t vsock_cid;
    uint32_t vsock_port;
    adt_ary_t cleanup_items;
@@ -125,6 +126,14 @@ void msocket_server_start(msocket_server_t *self, const char *udp_addr, uint16_t
  * @param socket_path Path to UNIX domain socket.
  */
 void msocket_server_unix_start(msocket_server_t *self, const char *socket_path);
+
+/**
+ * Starts the server using an already-bound and listening UNIX domain socket file descriptor (POSIX only).
+ *
+ * @param self Pointer to msocket_server_t instance.
+ * @param fd Pre-bound listening file descriptor (e.g. from systemd socket activation).
+ */
+void msocket_server_unix_start_fd(msocket_server_t *self, int fd);
 
 /**
  * Binds a listening VSOCK socket and starts the server threads (Linux only).

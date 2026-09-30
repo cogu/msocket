@@ -41,6 +41,7 @@ void msocket_server_create(msocket_server_t *self, uint8_t address_family, void 
       self->udp_port = 0u;
       self->udp_addr = NULL;
       self->socket_path = NULL;
+      self->unix_fd = -1;
       self->vsock_cid = 0u;
       self->vsock_port = 0u;
       self->accept_socket = NULL;
@@ -104,6 +105,7 @@ void msocket_server_destroy(msocket_server_t *self)
          free(self->socket_path);
          self->socket_path = NULL;
       }
+      self->unix_fd = -1;
 
 #if defined(MSOCKET_ENABLE_TLS)
       if (self->tls_server != NULL) {
@@ -146,6 +148,7 @@ void msocket_server_start(msocket_server_t *self, const char *udp_addr, uint16_t
    if (self != NULL) {
       self->tcp_port = tcp_port;
       self->udp_port = udp_port;
+      self->unix_fd = -1;
       if (udp_addr != NULL) {
          size_t len = strlen(udp_addr) + 1u;
          self->udp_addr = (char *)malloc(len);
@@ -162,6 +165,7 @@ void msocket_server_unix_start(msocket_server_t *self, const char *socket_path)
    if (self != NULL && socket_path != NULL) {
       self->tcp_port = 0u;
       self->udp_port = 0u;
+      self->unix_fd = -1;
       size_t len = (*socket_path == '\0') ? (strlen(socket_path + 1) + 2u) : (strlen(socket_path) + 1u);
       self->socket_path = (char *)malloc(len);
       if (self->socket_path != NULL) {
@@ -171,11 +175,22 @@ void msocket_server_unix_start(msocket_server_t *self, const char *socket_path)
    }
 }
 
+void msocket_server_unix_start_fd(msocket_server_t *self, int fd)
+{
+   if (self != NULL && fd >= 0) {
+      self->tcp_port = 0u;
+      self->udp_port = 0u;
+      self->unix_fd = fd;
+      msocket_server_start_threads(self);
+   }
+}
+
 void msocket_server_vsock_start(msocket_server_t *self, uint32_t cid, uint32_t port)
 {
    if (self != NULL && port != 0u) {
       self->tcp_port = 0u;
       self->udp_port = 0u;
+      self->unix_fd = -1;
       self->vsock_cid = cid;
       self->vsock_port = port;
       msocket_server_start_threads(self);
@@ -265,6 +280,16 @@ static msocket_error_t msocket_server_bind(msocket_server_t *self)
       rc = msocket_unix_listen(self->accept_socket, self->socket_path);
       if (rc != MSOCKET_NO_ERROR) {
          fprintf(stderr, "[MSOCKET_SERVER] Failed to bind UNIX path %s\n", self->socket_path);
+         msocket_delete(self->accept_socket);
+         self->accept_socket = NULL;
+         return rc;
+      }
+   }
+
+   if (self->unix_fd >= 0) {
+      rc = msocket_unix_listen_fd(self->accept_socket, self->unix_fd);
+      if (rc != MSOCKET_NO_ERROR) {
+         fprintf(stderr, "[MSOCKET_SERVER] Failed to adopt UNIX fd %d\n", self->unix_fd);
          msocket_delete(self->accept_socket);
          self->accept_socket = NULL;
          return rc;
