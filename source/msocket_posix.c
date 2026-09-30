@@ -9,6 +9,10 @@
 * See LICENSE in project root for full license terms.
 ******************************************************************************/
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 // INCLUDES
 //////////////////////////////////////////////////////////////////////////////
@@ -233,6 +237,28 @@ msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path
       return io_rc;
    }
    return MSOCKET_NO_ERROR;
+}
+
+msocket_error_t msocket_os_get_peer_credentials(const msocket_t *self, msocket_credentials_t *credentials)
+{
+#if defined(SO_PEERCRED)
+   struct ucred ucred;
+   socklen_t len = (socklen_t)sizeof(struct ucred);
+   if (self->os == NULL || OS_SOCKET_IS_INVALID(self->os->tcp_sockfd)) {
+      return MSOCKET_SOCKET_ERROR;
+   }
+   if (getsockopt(self->os->tcp_sockfd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
+      return MSOCKET_SOCKET_ERROR;
+   }
+   credentials->pid = (int)ucred.pid;
+   credentials->uid = (int)ucred.uid;
+   credentials->gid = (int)ucred.gid;
+   return MSOCKET_NO_ERROR;
+#else
+   (void)self;
+   (void)credentials;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////

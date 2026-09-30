@@ -178,6 +178,13 @@ msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path
    return MSOCKET_NOT_IMPLEMENTED_ERROR;
 }
 
+msocket_error_t msocket_os_get_peer_credentials(const msocket_t *self, msocket_credentials_t *credentials)
+{
+   (void)self;
+   (void)credentials;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // VSOCK (WINDOWS STUBS)
 //////////////////////////////////////////////////////////////////////////////

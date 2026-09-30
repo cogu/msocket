@@ -188,6 +188,7 @@ void msocket_os_mutex_unlock(msocket_os_t *os);
 msocket_error_t msocket_os_unix_listen(msocket_t *self, const char *socket_path);
 msocket_error_t msocket_os_unix_listen_fd(msocket_t *self, int fd);
 msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path);
+msocket_error_t msocket_os_get_peer_credentials(const msocket_t *self, msocket_credentials_t *credentials);
 
 msocket_error_t msocket_os_vsock_listen(msocket_t *self, uint32_t cid, uint32_t port);
 msocket_error_t msocket_os_vsock_connect(msocket_t *self, uint32_t cid, uint32_t port);

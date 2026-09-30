@@ -628,6 +628,17 @@ msocket_error_t msocket_unix_connect(msocket_t *self, const char *socket_path)
    return msocket_os_unix_connect(self, socket_path);
 }
 
+msocket_error_t msocket_get_peer_credentials(const msocket_t *self, msocket_credentials_t *credentials)
+{
+   if (self == NULL || credentials == NULL) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+   if (self->address_family != MSOCKET_ADDR_UNIX) {
+      return MSOCKET_NOT_IMPLEMENTED_ERROR;
+   }
+   return msocket_os_get_peer_credentials(self, credentials);
+}
+
 msocket_error_t msocket_vsock_connect(msocket_t *self, uint32_t cid, uint32_t port)
 {
    if (self == NULL || port == 0u || (self->socket_mode & MSOCKET_MODE_STREAM) != 0) {

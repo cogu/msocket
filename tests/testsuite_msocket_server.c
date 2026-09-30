@@ -537,6 +537,7 @@ static void test_msocket_server_unix_start_fd(CuTest *tc)
 
    msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_UNIX, NULL);
    CuAssertPtrNotNull(tc, srv);
+   msocket_server_disable_cleanup(srv);
 
    msocket_handler_t handler;
    memset(&handler, 0, sizeof(handler));
@@ -566,6 +567,66 @@ static void test_msocket_server_unix_start_fd(CuTest *tc)
    msocket_close(cli);
    msocket_delete(cli);
 
+   msocket_close(m_accepted_socket);
+   msocket_delete(m_accepted_socket);
+
+   msocket_server_delete(srv);
+   msocket_sem_delete(m_sem_accepted);
+   unlink(test_sock_path);
+}
+
+static void test_msocket_unix_peer_credentials(CuTest *tc)
+{
+   const char *test_sock_path = "/tmp/test_msocket_peer_cred.sock";
+   unlink(test_sock_path);
+
+   m_sem_accepted = msocket_sem_new(0u);
+   m_accepted_socket = NULL;
+
+   msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_UNIX, NULL);
+   CuAssertPtrNotNull(tc, srv);
+   msocket_server_disable_cleanup(srv);
+
+   msocket_handler_t srv_handler;
+   memset(&srv_handler, 0, sizeof(srv_handler));
+   srv_handler.stream_accept = on_server_accept_unix_fd;
+   msocket_server_set_handler(srv, &srv_handler, NULL);
+
+   msocket_server_unix_start(srv, test_sock_path);
+
+   msocket_sleep_ms(50u);
+
+   msocket_t *cli = msocket_new(MSOCKET_ADDR_UNIX);
+   CuAssertPtrNotNull(tc, cli);
+
+   msocket_handler_t cli_handler;
+   memset(&cli_handler, 0, sizeof(cli_handler));
+   msocket_set_handler(cli, &cli_handler, NULL);
+
+   msocket_error_t rc = msocket_unix_connect(cli, test_sock_path);
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+   msocket_start_io(cli);
+
+   int attempts = 0;
+   while (msocket_sem_test(m_sem_accepted) <= 0 && attempts++ < 50) {
+      msocket_sleep_ms(20u);
+   }
+   CuAssertTrue(tc, attempts < 50);
+   CuAssertPtrNotNull(tc, m_accepted_socket);
+
+   msocket_credentials_t creds;
+   msocket_error_t cred_rc = msocket_get_peer_credentials(m_accepted_socket, &creds);
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, cred_rc);
+   CuAssertIntEquals(tc, (int)getpid(), creds.pid);
+   CuAssertIntEquals(tc, (int)getuid(), creds.uid);
+   CuAssertIntEquals(tc, (int)getgid(), creds.gid);
+
+   msocket_close(cli);
+   msocket_delete(cli);
+
+   msocket_close(m_accepted_socket);
+   msocket_delete(m_accepted_socket);
+
    msocket_server_delete(srv);
    msocket_sem_delete(m_sem_accepted);
    unlink(test_sock_path);
@@ -583,6 +644,7 @@ CuSuite *testsuite_msocket_server(void)
    SUITE_ADD_TEST(suite, test_msocket_server_disable_cleanup);
 #ifndef _WIN32
    SUITE_ADD_TEST(suite, test_msocket_server_unix_start_fd);
+   SUITE_ADD_TEST(suite, test_msocket_unix_peer_credentials);
 #endif
    return suite;
 }
