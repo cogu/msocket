@@ -144,6 +144,12 @@ typedef struct msocket_addr_info_tag {
 
 typedef msocket_addr_info_t msocketAddrInfo_t;
 
+typedef struct msocket_credentials_tag {
+   int pid;
+   int uid;
+   int gid;
+} msocket_credentials_t;
+
 typedef struct msocket_tag {
    msocket_addr_info_t stream_info;
    msocket_addr_info_t udp_info;
@@ -319,6 +325,17 @@ msocket_error_t msocket_connect(msocket_t *self, const char *addr, uint16_t port
  * @return MSOCKET_NO_ERROR on success, or error code on failure.
  */
 msocket_error_t msocket_unix_connect(msocket_t *self, const char *socket_path);
+
+/**
+ * Retrieves the OS peer credentials (PID, UID, GID) for a connected UNIX socket.
+ *
+ * @param self Pointer to connected msocket_t instance.
+ * @param credentials Output pointer to receive the peer credentials.
+ * @return MSOCKET_NO_ERROR on success, MSOCKET_INVALID_ARGUMENT_ERROR on invalid parameters,
+ *         MSOCKET_NOT_IMPLEMENTED_ERROR on unsupported platforms/socket types,
+ *         or MSOCKET_SOCKET_ERROR on failure.
+ */
+msocket_error_t msocket_get_peer_credentials(const msocket_t *self, msocket_credentials_t *credentials);
 
 /**
  * Initiates an outgoing VSOCK connection (Linux only).
