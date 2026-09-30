@@ -184,6 +184,17 @@ msocket_error_t msocket_os_unix_listen(msocket_t *self, const char *socket_path)
    return MSOCKET_NO_ERROR;
 }
 
+msocket_error_t msocket_os_unix_listen_fd(msocket_t *self, int fd)
+{
+   if (fd < 0) {
+      return MSOCKET_INVALID_ARGUMENT_ERROR;
+   }
+   self->os->tcp_sockfd = fd;
+   self->state = MSOCKET_STATE_LISTENING;
+   self->socket_mode |= MSOCKET_MODE_STREAM;
+   return MSOCKET_NO_ERROR;
+}
+
 msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path)
 {
    struct sockaddr_un saddr;

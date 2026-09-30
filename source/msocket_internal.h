@@ -186,6 +186,7 @@ void msocket_os_mutex_lock(msocket_os_t *os);
 void msocket_os_mutex_unlock(msocket_os_t *os);
 
 msocket_error_t msocket_os_unix_listen(msocket_t *self, const char *socket_path);
+msocket_error_t msocket_os_unix_listen_fd(msocket_t *self, int fd);
 msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path);
 
 msocket_error_t msocket_os_vsock_listen(msocket_t *self, uint32_t cid, uint32_t port);

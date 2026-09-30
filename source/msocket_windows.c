@@ -164,6 +164,13 @@ msocket_error_t msocket_os_unix_listen(msocket_t *self, const char *socket_path)
    return MSOCKET_NOT_IMPLEMENTED_ERROR;
 }
 
+msocket_error_t msocket_os_unix_listen_fd(msocket_t *self, int fd)
+{
+   (void)self;
+   (void)fd;
+   return MSOCKET_NOT_IMPLEMENTED_ERROR;
+}
+
 msocket_error_t msocket_os_unix_connect(msocket_t *self, const char *socket_path)
 {
    (void)self;

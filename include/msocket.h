@@ -231,6 +231,15 @@ msocket_error_t msocket_listen(msocket_t *self, uint8_t mode, uint16_t port, con
 msocket_error_t msocket_unix_listen(msocket_t *self, const char *socket_path);
 
 /**
+ * Adopts an already-bound and listening UNIX domain socket file descriptor (POSIX only).
+ *
+ * @param self Pointer to msocket_t instance.
+ * @param fd Pre-bound listening file descriptor (e.g. from systemd socket activation).
+ * @return MSOCKET_NO_ERROR on success, or error code on failure.
+ */
+msocket_error_t msocket_unix_listen_fd(msocket_t *self, int fd);
+
+/**
  * Binds and configures a listening VSOCK socket (Linux only).
  *
  * @param self Pointer to msocket_t instance.
