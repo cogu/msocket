@@ -11,4 +11,8 @@ In msocket, all TCP sockets are automatically using TCP_NODELAY. This feature sh
 
 ## Remove state MSOCKET_STATE_ACCEPTING
 
-The MSOCKET_STATE_ACCEPTING doesn't serve any purpose except for debugging. It should be removed
+The MSOCKET_STATE_ACCEPTING doesn't serve any purpose except for debugging. It should be removed.
+
+## Binding TCP address
+
+Currently, TCP server listens on all interfaces. Add support for selecting what interfaces to bind to.
