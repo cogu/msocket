@@ -46,7 +46,10 @@ void msocket_os_init(void)
 {
    if (wsa_ref_count++ == 0) {
       WSADATA wsa_data;
-      WSAStartup(MAKEWORD(2, 2), &wsa_data);
+      int const result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+      if (result != 0) {
+         wsa_ref_count--;
+      }
    }
 }
 
