@@ -633,6 +633,48 @@ static void test_msocket_unix_peer_credentials(CuTest *tc)
 }
 #endif
 
+static void on_rapid_shutdown_accept(void *arg, msocket_server_t *srv, void *socket)
+{
+   (void)arg;
+   (void)srv;
+   if (socket != NULL) {
+      msocket_close((msocket_t *)socket);
+      msocket_delete((msocket_t *)socket);
+   }
+}
+
+static void test_msocket_server_rapid_accept_shutdown(CuTest *tc)
+{
+   const uint16_t base_port = 19890u;
+   for (int i = 0; i < 20; i++) {
+      uint16_t port = (uint16_t)(base_port + (uint16_t)i);
+      msocket_server_t *srv = msocket_server_new(MSOCKET_ADDR_INET, NULL);
+      CuAssertPtrNotNull(tc, srv);
+      msocket_server_disable_cleanup(srv);
+
+      msocket_handler_t srv_handler;
+      memset(&srv_handler, 0, sizeof(srv_handler));
+      srv_handler.stream_accept = on_rapid_shutdown_accept;
+      msocket_server_set_handler(srv, &srv_handler, NULL);
+
+      msocket_server_start(srv, NULL, 0u, port);
+
+      msocket_t *cli = msocket_new(MSOCKET_ADDR_INET);
+      CuAssertPtrNotNull(tc, cli);
+      msocket_handler_t cli_handler;
+      memset(&cli_handler, 0, sizeof(cli_handler));
+      msocket_set_handler(cli, &cli_handler, NULL);
+
+      msocket_error_t rc = msocket_connect(cli, "127.0.0.1", port);
+      CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+      msocket_close(cli);
+      msocket_delete(cli);
+
+      /* Immediately destroy server while accept_task is racing back to msocket_accept() */
+      msocket_server_delete(srv);
+   }
+}
+
 CuSuite *testsuite_msocket_server(void)
 {
    CuSuite *suite = CuSuiteNew();
@@ -642,6 +684,7 @@ CuSuite *testsuite_msocket_server(void)
    SUITE_ADD_TEST(suite, test_msocket_server_custom_wrapper);
    SUITE_ADD_TEST(suite, test_msocket_server_manual_cleanup_default);
    SUITE_ADD_TEST(suite, test_msocket_server_disable_cleanup);
+   SUITE_ADD_TEST(suite, test_msocket_server_rapid_accept_shutdown);
 #ifndef _WIN32
    SUITE_ADD_TEST(suite, test_msocket_server_unix_start_fd);
    SUITE_ADD_TEST(suite, test_msocket_unix_peer_credentials);

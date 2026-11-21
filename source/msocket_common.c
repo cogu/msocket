@@ -356,9 +356,22 @@ msocket_error_t msocket_vsock_listen(msocket_t *self, uint32_t cid, uint32_t por
 
 msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
 {
-   if (self == NULL || self->os == NULL || self->state != MSOCKET_STATE_LISTENING) {
+   if (self == NULL || self->os == NULL) {
       return NULL;
    }
+
+   msocket_os_mutex_lock(self->os);
+   if (self->state != MSOCKET_STATE_LISTENING) {
+      msocket_os_mutex_unlock(self->os);
+      return NULL;
+   }
+   os_socket_t accept_fd = self->os->tcp_sockfd;
+   if (OS_SOCKET_IS_INVALID(accept_fd)) {
+      msocket_os_mutex_unlock(self->os);
+      return NULL;
+   }
+   self->state = MSOCKET_STATE_ACCEPTING;
+   msocket_os_mutex_unlock(self->os);
 
    bool placement_new = false;
    if (child == NULL) {
@@ -369,29 +382,11 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
    }
 
    if (child == NULL) {
-      return NULL;
-   }
-
-   msocket_os_mutex_lock(self->os);
-   if (self->state == MSOCKET_STATE_CLOSING) {
+      msocket_os_mutex_lock(self->os);
+      if (self->state == MSOCKET_STATE_ACCEPTING) {
+         self->state = MSOCKET_STATE_LISTENING;
+      }
       msocket_os_mutex_unlock(self->os);
-      if (placement_new) {
-         msocket_destroy(child);
-      } else {
-         msocket_delete(child);
-      }
-      return NULL;
-   }
-   self->state = MSOCKET_STATE_ACCEPTING;
-   os_socket_t accept_fd = self->os->tcp_sockfd;
-   msocket_os_mutex_unlock(self->os);
-
-   if (OS_SOCKET_IS_INVALID(accept_fd)) {
-      if (placement_new) {
-         msocket_destroy(child);
-      } else {
-         msocket_delete(child);
-      }
       return NULL;
    }
 
@@ -406,6 +401,19 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
 
       int activity = select((int)accept_fd + 1, &readfds, NULL, NULL, &timeout);
       if (activity > 0) {
+         msocket_state_t state;
+         msocket_os_mutex_lock(self->os);
+         state = self->state;
+         msocket_os_mutex_unlock(self->os);
+
+         if (state != MSOCKET_STATE_ACCEPTING) {
+            if (placement_new) {
+               msocket_destroy(child);
+            } else {
+               msocket_delete(child);
+            }
+            return NULL;
+         }
          break;
       } else if (activity == 0) {
          msocket_state_t state;
@@ -413,7 +421,7 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
          state = self->state;
          msocket_os_mutex_unlock(self->os);
 
-         if (state == MSOCKET_STATE_CLOSING) {
+         if (state != MSOCKET_STATE_ACCEPTING) {
             if (placement_new) {
                msocket_destroy(child);
             } else {
@@ -425,6 +433,11 @@ msocket_t *msocket_accept(msocket_t *self, msocket_t *child)
          if (OS_SOCKET_ERRNO_IS_INTR()) {
             continue;
          }
+         msocket_os_mutex_lock(self->os);
+         if (self->state == MSOCKET_STATE_ACCEPTING) {
+            self->state = MSOCKET_STATE_LISTENING;
+         }
+         msocket_os_mutex_unlock(self->os);
          if (placement_new) {
             msocket_destroy(child);
          } else {
