@@ -45,6 +45,12 @@
 #define TIMEOUT_CALL_INTERVAL_MS 1000 //interval for timeout callback handler
 #define MAX_CLOSE_ATTEMPTS 20
 
+#ifdef SOMAXCONN
+#define MSOCKET_LISTEN_BACKLOG SOMAXCONN
+#else
+#define MSOCKET_LISTEN_BACKLOG 128
+#endif
+
 /**************** Private Function Declarations *******************/
 static THREAD_PROTO(ioTask,arg);
 static int8_t msocket_startIoThread(msocket_t *self);
@@ -286,7 +292,7 @@ int8_t msocket_listen(msocket_t *self,uint8_t mode, const uint16_t port, const c
               SOCKET_CLOSE(socktcp);
               return rc;
            }
-           rc = listen(socktcp,5);
+           rc = listen(socktcp,MSOCKET_LISTEN_BACKLOG);
            if(rc<0){
               SOCKET_CLOSE(socktcp);
               return rc;
@@ -333,7 +339,7 @@ int8_t msocket_unix_listen(msocket_t *self, const char *socket_path)
             SOCKET_CLOSE(sockunix);
             return rc;
          }
-         rc = listen(sockunix,5);
+         rc = listen(sockunix,MSOCKET_LISTEN_BACKLOG);
          if(rc<0){
             SOCKET_CLOSE(sockunix);
             return rc;
