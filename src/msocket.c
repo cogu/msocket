@@ -361,7 +361,7 @@ msocket_t *msocket_accept(msocket_t *self,msocket_t *child){
       struct sockaddr_in6 cli_addr6;
       int sockoptval;
       socklen_t sockoptlen = sizeof(sockoptval);
-      SOCKET_T sockfd;
+      SOCKET_T sockfd = INVALID_SOCKET_FD;
       uint8_t placementNew = 0;
 #ifdef _WIN32
       int cli_len;
