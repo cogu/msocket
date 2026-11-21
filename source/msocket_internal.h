@@ -132,6 +132,12 @@ typedef int os_socket_t;
 # define MSG_NOSIGNAL                0
 #endif
 
+#ifdef SOMAXCONN
+# define MSOCKET_LISTEN_BACKLOG      SOMAXCONN
+#else
+# define MSOCKET_LISTEN_BACKLOG      128
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 // PLATFORM THREADING & SYNC
 //////////////////////////////////////////////////////////////////////////////

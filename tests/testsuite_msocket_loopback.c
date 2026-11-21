@@ -285,12 +285,99 @@ static void test_tcp_send_to_closed_peer_returns_error_without_sigpipe(CuTest *t
    msocket_sem_delete(g_sem_client_connected);
 }
 
+#define TCP_PORT_BACKLOG 19879u
+#define BACKLOG_BURST_COUNT 16
+
+static void test_tcp_listen_backlog_burst(CuTest *tc)
+{
+   msocket_t *srv = msocket_new(MSOCKET_ADDR_INET);
+   CuAssertPtrNotNull(tc, srv);
+   msocket_error_t rc = msocket_listen(srv, MSOCKET_MODE_STREAM, TCP_PORT_BACKLOG, "127.0.0.1");
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+
+   msocket_t *clients[BACKLOG_BURST_COUNT];
+   msocket_t *peers[BACKLOG_BURST_COUNT];
+   msocket_handler_t cli_handler;
+   memset(&cli_handler, 0, sizeof(cli_handler));
+
+   /* Queue more than 5 simultaneous TCP connections before calling accept(). */
+   for (int i = 0; i < BACKLOG_BURST_COUNT; i++) {
+      clients[i] = msocket_new(MSOCKET_ADDR_INET);
+      CuAssertPtrNotNull(tc, clients[i]);
+      msocket_set_handler(clients[i], &cli_handler, NULL);
+      rc = msocket_connect(clients[i], "127.0.0.1", TCP_PORT_BACKLOG);
+      CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+   }
+
+   for (int i = 0; i < BACKLOG_BURST_COUNT; i++) {
+      peers[i] = msocket_accept(srv, NULL);
+      CuAssertPtrNotNull(tc, peers[i]);
+   }
+
+   for (int i = 0; i < BACKLOG_BURST_COUNT; i++) {
+      msocket_close(clients[i]);
+      msocket_delete(clients[i]);
+      msocket_close(peers[i]);
+      msocket_delete(peers[i]);
+   }
+
+   msocket_close(srv);
+   msocket_delete(srv);
+}
+
+#ifndef _WIN32
+static void test_unix_listen_backlog_burst(CuTest *tc)
+{
+   const char *sock_path = "/tmp/test_msocket_unix_backlog.sock";
+   unlink(sock_path);
+
+   msocket_t *srv = msocket_new(MSOCKET_ADDR_UNIX);
+   CuAssertPtrNotNull(tc, srv);
+   msocket_error_t rc = msocket_unix_listen(srv, sock_path);
+   CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+
+   msocket_t *clients[BACKLOG_BURST_COUNT];
+   msocket_t *peers[BACKLOG_BURST_COUNT];
+   msocket_handler_t cli_handler;
+   memset(&cli_handler, 0, sizeof(cli_handler));
+
+   /* Queue more than 5 simultaneous UNIX connections before calling accept(). */
+   for (int i = 0; i < BACKLOG_BURST_COUNT; i++) {
+      clients[i] = msocket_new(MSOCKET_ADDR_UNIX);
+      CuAssertPtrNotNull(tc, clients[i]);
+      msocket_set_handler(clients[i], &cli_handler, NULL);
+      rc = msocket_unix_connect(clients[i], sock_path);
+      CuAssertIntEquals(tc, MSOCKET_NO_ERROR, rc);
+   }
+
+   for (int i = 0; i < BACKLOG_BURST_COUNT; i++) {
+      peers[i] = msocket_accept(srv, NULL);
+      CuAssertPtrNotNull(tc, peers[i]);
+   }
+
+   for (int i = 0; i < BACKLOG_BURST_COUNT; i++) {
+      msocket_close(clients[i]);
+      msocket_delete(clients[i]);
+      msocket_close(peers[i]);
+      msocket_delete(peers[i]);
+   }
+
+   msocket_close(srv);
+   msocket_delete(srv);
+   unlink(sock_path);
+}
+#endif
+
 CuSuite *testsuite_msocket_loopback(void)
 {
    CuSuite *suite = CuSuiteNew();
    SUITE_ADD_TEST(suite, test_tcp_loopback);
    SUITE_ADD_TEST(suite, test_udp_loopback);
    SUITE_ADD_TEST(suite, test_tcp_send_to_closed_peer_returns_error_without_sigpipe);
+   SUITE_ADD_TEST(suite, test_tcp_listen_backlog_burst);
+#ifndef _WIN32
+   SUITE_ADD_TEST(suite, test_unix_listen_backlog_burst);
+#endif
    return suite;
 }
 

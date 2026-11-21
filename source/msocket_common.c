@@ -317,7 +317,7 @@ msocket_error_t msocket_listen(msocket_t *self, uint8_t mode, uint16_t port, con
          return MSOCKET_SOCKET_ERROR;
       }
 
-      rc = listen(socktcp, 5);
+      rc = listen(socktcp, MSOCKET_LISTEN_BACKLOG);
       if (rc < 0) {
          OS_SOCKET_CLOSE(socktcp);
          return MSOCKET_SOCKET_ERROR;

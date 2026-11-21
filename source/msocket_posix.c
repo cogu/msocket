@@ -176,7 +176,7 @@ msocket_error_t msocket_os_unix_listen(msocket_t *self, const char *socket_path)
       return MSOCKET_SOCKET_ERROR;
    }
 
-   rc = listen(sockunix, 5);
+   rc = listen(sockunix, MSOCKET_LISTEN_BACKLOG);
    if (rc < 0) {
       close(sockunix);
       return MSOCKET_SOCKET_ERROR;
@@ -288,7 +288,7 @@ msocket_error_t msocket_os_vsock_listen(msocket_t *self, uint32_t cid, uint32_t 
       return MSOCKET_SOCKET_ERROR;
    }
 
-   rc = listen(sockvsock, 5);
+   rc = listen(sockvsock, MSOCKET_LISTEN_BACKLOG);
    if (rc < 0) {
       close(sockvsock);
       return MSOCKET_SOCKET_ERROR;
