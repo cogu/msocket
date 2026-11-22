@@ -21,7 +21,7 @@ When initialized with ``NULL`` or :cpp:func:`msocket_vdelete` as the destructor,
    - Start background I/O on the child connection by calling :cpp:func:`msocket_start_io(child_socket) <msocket_start_io>`.
    - *Note:* Accepted child sockets are automatically cleaned up by the server upon disconnect. When the remote client disconnects, the socket's background thread automatically enqueues the raw socket to the cleanup thread for asynchronous deletion.
 
-3. Start listening with :cpp:func:`msocket_server_start` (TCP/UDP) or :cpp:func:`msocket_server_unix_start` (UNIX domain).
+3. Start listening with :cpp:func:`msocket_server_start` (TCP/UDP), :cpp:func:`msocket_server_start_tls` (TLS), :cpp:func:`msocket_server_unix_start` / :cpp:func:`msocket_server_unix_start_fd` (UNIX domain), or :cpp:func:`msocket_server_vsock_start` (Linux VSOCK).
 4. When stopping, destroy the server with :cpp:func:`msocket_server_destroy` or :cpp:func:`msocket_server_delete`.
 
 Custom Wrapper Mode
@@ -58,7 +58,10 @@ Configuration and Startup
 
 .. doxygenfunction:: msocket_server_set_handler
 .. doxygenfunction:: msocket_server_start
+.. doxygenfunction:: msocket_server_start_tls
 .. doxygenfunction:: msocket_server_unix_start
+.. doxygenfunction:: msocket_server_unix_start_fd
+.. doxygenfunction:: msocket_server_vsock_start
 
 Connection Reaping & Cleanup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

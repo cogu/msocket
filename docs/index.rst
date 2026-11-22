@@ -6,8 +6,10 @@ msocket
 It allows applications to register callbacks when lifecycle events occur on a socket (such as connection established, disconnected, or new data received). The ``msocket`` library manages the low-level details of the OS-level socket objects and background worker threads, functioning identically across Linux and Windows:
 
 * **TCP Client and Server**: Stream communication supporting IPv4 and IPv6.
+* **TLS / mTLS Transport**: Optional encrypted TCP transport with X.509 certificate verification and mutual TLS (``MSOCKET_ENABLE_TLS``).
 * **UDP Client and Server**: Datagram communication with support for unicast and multicast.
-* **UNIX Domain Sockets**: High-performance local inter-process communication on Linux and POSIX platforms.
+* **UNIX Domain Sockets**: High-performance local inter-process communication on Linux and POSIX platforms, including systemd socket activation and peer credential inspection.
+* **VSOCK**: Virtual machine host/guest communication (``AF_VSOCK``) on Linux.
 * **Event-Driven Asynchronous I/O**: Integrated worker threads monitor socket activity and dispatch connect, disconnect, and data callbacks.
 * **In-Memory Testing Framework**: Built-in mock socket implementation (``testsocket`` and ``testsocket_spy``) enabling unit testing of network protocols and message parsing without OS network sockets.
 * **C++ RAII Wrapper**: Type-safe RAII classes and listener interfaces for modern C++.
@@ -20,6 +22,7 @@ It allows applications to register callbacks when lifecycle events occur on a so
 
    msocket
    msocket_server
+   msocket_tls
    socket_handler
    msocket_error
    testsocket
@@ -41,10 +44,13 @@ Below is a summary of all modules provided by the msocket library:
      - Description
    * - :doc:`msocket`
      - ``msocket.h``
-     - Client/peer event-driven socket handling TCP, UDP, and UNIX domains
+     - Client/peer event-driven socket handling TCP, TLS, UDP, UNIX domain, and VSOCK
    * - :doc:`msocket_server`
      - ``msocket_server.h``
      - Server connection listener and client socket lifecycle manager
+   * - :doc:`msocket_tls`
+     - ``msocket_tls.h``
+     - TLS and mutual TLS (mTLS) certificate and verification configuration
    * - :doc:`socket_handler`
      - ``msocket.h``
      - Unified event callback table (``msocket_handler_t``) and handler contracts

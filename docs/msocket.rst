@@ -7,8 +7,10 @@ Features
 --------
 
 - **TCP / Stream**: Connects to remote TCP servers (IPv4 and IPv6) or acts as an accepted client peer.
+- **TLS / mTLS**: Encrypted TCP connections with server and optional mutual client certificate authentication (see :doc:`msocket_tls`).
 - **UDP / Datagram**: Sends and receives UDP datagrams with optional broadcast/multicast.
-- **UNIX Domain Sockets**: Local IPC connections on POSIX systems.
+- **UNIX Domain Sockets**: Local IPC connections on POSIX systems, including systemd file descriptor adoption and peer credential inspection.
+- **VSOCK**: Host/guest virtual machine sockets (``AF_VSOCK``) on Linux.
 - **Callback Table**: Dispatches connect, disconnect, and incoming data events via :doc:`msocket_handler_t <socket_handler>`.
 
 Handler Callbacks
@@ -42,16 +44,30 @@ Connection and I/O Operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. doxygenfunction:: msocket_connect
+.. doxygenfunction:: msocket_connect_tls
 .. doxygenfunction:: msocket_unix_connect
+.. doxygenfunction:: msocket_vsock_connect
 .. doxygenfunction:: msocket_listen
 .. doxygenfunction:: msocket_unix_listen
+.. doxygenfunction:: msocket_unix_listen_fd
+.. doxygenfunction:: msocket_vsock_listen
 .. doxygenfunction:: msocket_accept
 .. doxygenfunction:: msocket_start_io
 .. doxygenfunction:: msocket_send
 .. doxygenfunction:: msocket_send_to
 
-Utilities and State
-~~~~~~~~~~~~~~~~~~~
+TLS Context Accessors
+~~~~~~~~~~~~~~~~~~~~~
 
+.. doxygenfunction:: msocket_set_tls
+.. doxygenfunction:: msocket_get_tls
+
+Peer Credentials and State
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenstruct:: msocket_credentials_tag
+   :members:
+
+.. doxygenfunction:: msocket_get_peer_credentials
 .. doxygenfunction:: msocket_state
 .. doxygenfunction:: msocket_parse_endpoint

@@ -64,7 +64,7 @@ typedef struct msocket_server_tag {
  *   and invoke msocket_server_cleanup_connection(self, wrapper) from the stream_disconnected callback.
  *
  * @param self Pointer to msocket_server_t instance.
- * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, or MSOCKET_ADDR_UNIX).
+ * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, MSOCKET_ADDR_UNIX, or MSOCKET_ADDR_VSOCK).
  * @param destructor Destructor function for cleanup items, or NULL to use default msocket_vdelete.
  */
 void msocket_server_create(msocket_server_t *self, uint8_t address_family, void (*destructor)(void *));
@@ -82,7 +82,7 @@ void msocket_server_destroy(msocket_server_t *self);
  * Supports default auto-reap mode (destructor == NULL or msocket_vdelete) or custom
  * wrapper mode (custom destructor function).
  *
- * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, or MSOCKET_ADDR_UNIX).
+ * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, MSOCKET_ADDR_UNIX, or MSOCKET_ADDR_VSOCK).
  * @param destructor Destructor function for cleanup items, or NULL to use default msocket_vdelete.
  * @return Pointer to newly allocated msocket_server_t, or NULL on failure.
  */

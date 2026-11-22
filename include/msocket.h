@@ -144,10 +144,13 @@ typedef struct msocket_addr_info_tag {
 
 typedef msocket_addr_info_t msocketAddrInfo_t;
 
+/**
+ * OS peer credentials retrieved for a connected UNIX domain socket.
+ */
 typedef struct msocket_credentials_tag {
-   int pid;
-   int uid;
-   int gid;
+   int pid; /**< Remote peer process ID (PID). */
+   int uid; /**< Remote peer user ID (UID). */
+   int gid; /**< Remote peer primary group ID (GID). */
 } msocket_credentials_t;
 
 typedef struct msocket_tag {
@@ -174,7 +177,7 @@ typedef struct msocket_tag {
  * Initializes an existing msocket instance.
  *
  * @param self Pointer to msocket_t instance.
- * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, or MSOCKET_ADDR_UNIX).
+ * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, MSOCKET_ADDR_UNIX, or MSOCKET_ADDR_VSOCK).
  * @return MSOCKET_NO_ERROR on success, or error code on failure.
  */
 msocket_error_t msocket_create(msocket_t *self, uint8_t address_family);
@@ -189,7 +192,7 @@ void msocket_destroy(msocket_t *self);
 /**
  * Dynamically allocates and initializes a new msocket instance.
  *
- * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, or MSOCKET_ADDR_UNIX).
+ * @param address_family Address family (MSOCKET_ADDR_INET, MSOCKET_ADDR_INET6, MSOCKET_ADDR_UNIX, or MSOCKET_ADDR_VSOCK).
  * @return Pointer to newly allocated msocket_t, or NULL on failure.
  */
 msocket_t *msocket_new(uint8_t address_family);
@@ -415,17 +418,33 @@ msocket_endpoint_type_t msocket_parse_endpoint(const char *text, adt_str_t **add
 #define tcp_info                    stream_info
 
 /**
- * Attaches a TLS context to an msocket.
+ * Attaches a TLS context to an msocket instance.
+ *
+ * @param self Pointer to msocket_t instance.
+ * @param tls Pointer to msocket_tls_t context, or NULL to detach.
  */
 void msocket_set_tls(msocket_t *self, struct msocket_tls_tag *tls);
 
 /**
- * Retrieves the TLS context attached to an msocket.
+ * Retrieves the TLS context attached to an msocket instance.
+ *
+ * @param self Pointer to msocket_t instance.
+ * @return Attached msocket_tls_t context pointer, or NULL if TLS is not attached.
  */
 struct msocket_tls_tag *msocket_get_tls(const msocket_t *self);
 
 /**
- * Connects to a remote server using TLS over TCP.
+ * Initiates an outgoing TLS-encrypted TCP connection to a remote server.
+ *
+ * Requires a handler table to be registered beforehand via msocket_set_handler().
+ * Upon successful TLS handshake, the background I/O event loop is launched automatically.
+ *
+ * @param self Pointer to msocket_t instance.
+ * @param addr Target IP address or hostname string.
+ * @param port Target TCP port.
+ * @param tls_config Pointer to TLS configuration (CA cert and optional client cert/key for mTLS).
+ * @return MSOCKET_NO_ERROR on success, MSOCKET_NOT_IMPLEMENTED_ERROR if built without MSOCKET_ENABLE_TLS,
+ *         or error code on failure.
  */
 msocket_error_t msocket_connect_tls(msocket_t *self, const char *addr, uint16_t port, const struct msocket_tls_config_tag *tls_config);
 
